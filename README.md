@@ -1,2 +1,11 @@
 # NetSentinel
-NetSentinel project for CS:3354 -- Team 5
+
+### Feature: Packet Storage
+**Responsibilities**
+ - Save / load packet captures
+ - Export traffic history
+ - Manage logs
+ - Clean up stored data
+
+**Developer Assigned**
+ - Lamaryi Ponder or anyone idk
