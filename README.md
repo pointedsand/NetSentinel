@@ -1,5 +1,6 @@
 # 🛡️ NetSentinel
 *CS/CE 3354 Team 5*
+
 **NetSentinel** is a cross-platform network monitoring and security analysis application designed to capture, inspect, and analyze network traffic in real time.
 
 NetSentinel provides an interface for monitoring network activity, discovering connected devices, and identifying potentially suspicious traffic.
