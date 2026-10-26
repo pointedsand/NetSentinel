@@ -1,2 +1,7 @@
 # NetSentinel
-NetSentinel project for CS:3354 -- Team 5
+Branch for frontend
+ - Vite
+ - Npm
+ - React
+ - Tailwind css
+
