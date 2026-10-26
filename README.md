@@ -13,6 +13,76 @@
  - Backend Communication Layer: Planned for 2-way WebSocket
  - Supported Platforms: Windows and hopefully Linux
 
+### How to setup on your machine:
+1. **Install Prerequisites**
+   - Git https://git-scm.com/downloads
+   - Node.js (LTS) https://nodejs.org/ (Node.js includes npm, so it does not need to be installed separately.)
+   On Windows, use powershell to verify installation: 
+```text
+git --version
+node --version
+npm --version
+```
+2. **Clone repo**
+Open your terminal and navigate to your development directory
+```text
+git clone https://github.com/pointedsand/NetSentinel.git
+cd NetSentinel
+```
+switch to the frontend branch:
+```text
+git switch frontend
+git pull origin frontend
+```
+3. **Install dependencies**
+Navigate to frontend directory
+```text
+cd frontend
+```
+install project dependencies
+```text
+npm ci
+```
+This will install the packages specified in `package-lock.json` (so far React, Vite, TS, and any others)
+Note: DO NOT INIT ANOTHER VITE PROJECT. IT IS ALREADY CONFIGURED.
+4. **Start the dev server**
+run:
+```text
+npm run dev
+```
+Vite will start a local dev server, you can open the url by clicking on it to view the application.
+
+Changes to React files will automatically appear in the browser while the server is running
+(ctrl + c to stop server in terminal)
+
+5. **Updating your repo**
+Before starting development, pull latest changes from frontend branch
+```text
+git switch frontend
+git pull origin frontend
+```
+if any dependencies have changed go back to step 3.
+
+6. **Working on your assigned branch**
+switch to your assigned page or feature branch:
+example:
+```text
+git switch page/dashboard
+```
+if for some reason the branch is not available locally, fetch remote branches first:
+```text
+git fetch origin
+git switch --track origin/page/dashboard
+```
+
+after making changes, commit and push them:
+```text
+git add .
+git commit -m "Describe your changes"
+git push
+```
+
+
 ## Features
 ##### Dashboard
 *page/dashboard*
