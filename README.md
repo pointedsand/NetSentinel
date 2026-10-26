@@ -1,2 +1,12 @@
 # NetSentinel
-NetSentinel project for CS:3354 -- Team 5
+
+### Page: Device Management 
+**Responsibilities**
+ - Display discovered network devices
+ - Show devices IP/MAC addresses
+ - Show hostnames and device labels
+ - Show connection status of device
+
+
+**Developer Assigned**
+ - Front end team decides and updates here
