@@ -20,37 +20,37 @@ The application uses a **C++ backend** for network processing and a **React + El
 
 ## 🚀 Features
 
-### 📡 Packet Capture & Inspection
+###  Packet Capture & Inspection
 - Capture live network traffic from selected network interfaces.
 - Decode and inspect packet headers, protocols, and payload information.
 - Filter traffic by protocol, IP address, or port.
 
-### 📊 Network Statistics
+###  Network Statistics
 - Monitor packet counts, bandwidth usage, and traffic rates.
 - Visualize network activity through real-time graphs and statistics.
 - Analyze protocol distribution and network utilization.
 
-### 🌐 Network Discovery
+###  Network Discovery
 - Discover devices connected to the local network.
 - Identify IP addresses, MAC addresses, and hostnames.
 - Maintain a device inventory and recognize new or unknown devices.
 
-### 🚨 Security Monitoring
+###  Security Monitoring
 - Detect suspicious traffic patterns and unusual network activity.
 - Generate alerts for unknown devices and abnormal traffic spikes.
 - Configure security thresholds and review alert history.
 
-### 💾 Packet Storage & Logging
+###  Packet Storage & Logging
 - Save and load captured packet data.
 - Export packet captures for later analysis.
 - Maintain timestamped logs of security events.
 
-### 🖥️ Desktop Interface
+###  Desktop Interface
 - Modern graphical interface built with React and Electron.
 - Dedicated pages for packets, statistics, devices, alerts, and logs.
 - Real-time communication with the C++ backend.
 
-## ⚙️ Technology Stack
+##  Technology Stack
 
 | Component | Technology |
 |---|---|
@@ -64,7 +64,7 @@ The application uses a **C++ backend** for network processing and a **React + El
 | Communication | Bidirectional WebSocket (planned) |
 | Target Platforms | Windows / Linux (planned) |
 
-## 🏗️ Architecture
+##  Architecture
 
 NetSentinel separates network processing from the user interface to improve performance, maintainability, and modularity.
 
@@ -94,7 +94,7 @@ NetSentinel separates network processing from the user interface to improve perf
 └────────────────────────────────────┘
 ```
 
-## 🌿 Branch Organization
+##  Branch Organization
 
 Development is divided between frontend and backend teams. Features are implemented independently and integrated into the main application after testing and review.
 
@@ -122,7 +122,7 @@ main
 
 *Branch hierarchy represents the intended development workflow.*
 
-## 🔄 Development Workflow
+##  Development Workflow
 
 1. Develop functionality on the assigned feature or page branch.
 2. Test changes before submitting a pull request.
