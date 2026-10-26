@@ -45,7 +45,9 @@ install project dependencies
 npm ci
 ```
 This will install the packages specified in `package-lock.json` (so far React, Vite, TS, and any others)
+
 Note: DO NOT INIT ANOTHER VITE PROJECT. IT IS ALREADY CONFIGURED.
+
 4. **Start the dev server**
 run:
 ```text
