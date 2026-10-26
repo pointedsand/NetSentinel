@@ -4,4 +4,5 @@
  - Network interface selection
  - Start / stop capture
  - Raw packet acquisition (libpcap: linux) (npcap: windows) -> windows priority then linux later
-
+**Assigned to**:
+ - Evan Guadalajara
