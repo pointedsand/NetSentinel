@@ -18,7 +18,7 @@
    - Git https://git-scm.com/downloads
    - Node.js (LTS) https://nodejs.org/ (Node.js includes npm, so it does not need to be installed separately.)
    
-   On Windows, use powershell to verify installation: 
+On Windows, use powershell to verify installation: 
 ```text
 git --version
 node --version
