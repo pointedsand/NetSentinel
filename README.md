@@ -25,6 +25,7 @@ node --version
 npm --version
 ```
 2. **Clone repo**
+
 Open your terminal and navigate to your development directory
 ```text
 git clone https://github.com/pointedsand/NetSentinel.git
@@ -36,6 +37,7 @@ git switch frontend
 git pull origin frontend
 ```
 3. **Install dependencies**
+
 Navigate to frontend directory
 ```text
 cd frontend
@@ -49,6 +51,7 @@ This will install the packages specified in `package-lock.json` (so far React, V
 Note: DO NOT INIT ANOTHER VITE PROJECT. IT IS ALREADY CONFIGURED.
 
 4. **Start the dev server**
+
 run:
 ```text
 npm run dev
@@ -59,6 +62,7 @@ Changes to React files will automatically appear in the browser while the server
 (ctrl + c to stop server in terminal)
 
 5. **Updating your repo**
+
 Before starting development, pull latest changes from frontend branch
 ```text
 git switch frontend
@@ -67,6 +71,7 @@ git pull origin frontend
 if any dependencies have changed go back to step 3.
 
 6. **Working on your assigned branch**
+
 switch to your assigned page or feature branch:
 example:
 ```text
