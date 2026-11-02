@@ -1,0 +1,12 @@
+/* Reset browser default spacing so layout renders consistently across elements. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Set the app's base background and prevent page scrolling so the shell can manage layout internally. */
+body {
+  overflow: hidden;
+  background-color: #11111b;
+}
