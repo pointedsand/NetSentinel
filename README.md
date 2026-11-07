@@ -93,7 +93,7 @@ git push
 
 ## Features
 ##### Dashboard
-*page/dashboard*
+*page/dashboard* - Anthony
  - Display overview of live network activity
  - Show traffic graphs, packet counts, and bandwidth usage
  - Display security alerts and network statistics
