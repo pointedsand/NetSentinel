@@ -37,7 +37,7 @@
  - Maintain a device list and recognize new/unknown devices
 
 ##### Traffic Statistics 
-*feature/traffic-statistics*
+*feature/traffic-statistics* - Anthony
  - Track packet counts, byte totals, and traffic rates
  - Calculate bandwidth usage and protocol distribution
  - Provide real-time statistics to the frontend
