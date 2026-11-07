@@ -129,7 +129,7 @@ git push
  - Manage network monitoring and display preferences
 
 ##### App Shell
-*feature/app-shell*
+*feature/app-shell* -- George
  - Create the main application layout and navigation sidebar
  - Set up React routing between pages
  - Implement shared UI components, styling, and themes
