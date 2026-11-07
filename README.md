@@ -134,6 +134,7 @@ git push
  - Set up React routing between pages
  - Implement shared UI components, styling, and themes
  - Integrate Electron with the React application
+ - Include Notification bell icon on the top right that when clicked shows a dropdown menu with notifications and can click show all to view a popup window that displays notifs. also includes a button for clear all notifications or to clear specific notifications.
 
 ### Branch Organization
 ```
