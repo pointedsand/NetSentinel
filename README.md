@@ -1,144 +1,116 @@
-# NetSentinel: Frontend
-**Team Members**
- - Osagbewonrue Ugiagbe
- - George Salmi
- - William Bik
+# 🛡️ NetSentinel
+*CS/CE 3354 Team 5*
 
-### Tech Stack
- - Framework: React
- - Language: TypeScript
- - Build Tool: Vite
- - Package Manager: npm / Node.js
- - Desktop Framework: Electron
- - Backend Communication Layer: Planned for 2-way WebSocket
- - Supported Platforms: Windows and hopefully Linux
+**NetSentinel** is a cross-platform network monitoring and security analysis application designed to capture, inspect, and analyze network traffic in real time.
 
-### How to setup on your machine:
-1. **Install Prerequisites**
-   - Git https://git-scm.com/downloads
-   - Node.js (LTS) https://nodejs.org/ (Node.js includes npm, so it does not need to be installed separately.)
-   
-On Windows, use powershell to verify installation: 
+NetSentinel provides an interface for monitoring network activity, discovering connected devices, and identifying potentially suspicious traffic.
+
+The application uses a **C++ backend** for network processing and a **React + Electron frontend** for visualization and user interaction.
+
+### 👥 Team Members
+
+**Backend Development**
+- Evan Guadalajara
+- Ryan Chan
+- Lamaryi Ponder
+
+**Frontend Development**
+- Osagbewonrue Ugiagbe
+- George Salmi
+- William Bik
+
+## 🚀 Features
+
+###  Packet Capture & Inspection
+- Capture live network traffic from selected network interfaces.
+- Decode and inspect packet headers, protocols, and payload information.
+- Filter traffic by protocol, IP address, or port.
+
+###  Network Statistics
+- Monitor packet counts, bandwidth usage, and traffic rates.
+- Visualize network activity through real-time graphs and statistics.
+- Analyze protocol distribution and network utilization.
+
+###  Network Discovery
+- Discover devices connected to the local network.
+- Identify IP addresses, MAC addresses, and hostnames.
+- Maintain a device inventory and recognize new or unknown devices.
+
+###  Security Monitoring
+- Detect suspicious traffic patterns and unusual network activity.
+- Generate alerts for unknown devices and abnormal traffic spikes.
+- Configure security thresholds and review alert history.
+
+###  Packet Storage & Logging
+- Save and load captured packet data.
+- Export packet captures for later analysis.
+- Maintain timestamped logs of security events.
+
+###  Desktop Interface
+- Modern graphical interface built with React and Electron.
+- Dedicated pages for packets, statistics, devices, alerts, and logs.
+- Real-time communication with the C++ backend.
+
+##  Technology Stack
+
+| Component | Technology |
+|---|---|
+| Backend | C++ |
+| Build System | CMake |
+| Packet Capture | Npcap (Windows) / libpcap (Linux) |
+| Frontend | React + TypeScript |
+| Frontend Build Tool | Vite |
+| Package Manager | npm / Node.js |
+| Desktop Framework | Electron |
+| Communication | Bidirectional WebSocket (planned) |
+| Target Platforms | Windows / Linux (planned) |
+
+##  Architecture
+
+NetSentinel separates network processing from the user interface to improve performance, maintainability, and modularity.
+
 ```text
-git --version
-node --version
-npm --version
+┌────────────────────────────────────┐
+│         Electron + React           │
+│                                    │
+│  Dashboard | Packets | Devices     │
+│  Security  | Logs    | Settings    │
+└─────────────────┬──────────────────┘
+                  │
+           WebSocket / IPC
+                  │
+┌─────────────────▼──────────────────┐
+│            C++ Backend             │
+│                                    │
+│  Packet Capture & Parsing          │
+│  Filtering & Traffic Statistics    │
+│  Network Discovery                 │
+│  Security Monitoring & Storage     │
+└─────────────────┬──────────────────┘
+                  │
+            Npcap / libpcap
+                  │
+┌─────────────────▼──────────────────┐
+│       Network Interfaces           │
+└────────────────────────────────────┘
 ```
-2. **Clone repo**
 
-Open your terminal and navigate to your development directory
+##  Branch Organization
+
+Development is divided between frontend and backend teams. Features are implemented independently and integrated into the main application after testing and review.
+
 ```text
-git clone https://github.com/pointedsand/NetSentinel.git
-cd NetSentinel
-```
-switch to the frontend branch:
-```text
-git switch frontend
-git pull origin frontend
-```
-3. **Install dependencies**
-
-Navigate to frontend directory
-```text
-cd frontend
-```
-install project dependencies
-```text
-npm ci
-```
-This will install the packages specified in `package-lock.json` (so far React, Vite, TS, and any others)
-
-Note: DO NOT INIT ANOTHER VITE PROJECT. IT IS ALREADY CONFIGURED.
-
-4. **Start the dev server**
-
-run:
-```text
-npm run dev
-```
-Vite will start a local dev server, you can open the url by clicking on it to view the application.
-
-Changes to React files will automatically appear in the browser while the server is running
-(ctrl + c to stop server in terminal)
-
-5. **Updating your repo**
-
-Before starting development, pull latest changes from frontend branch
-```text
-git switch frontend
-git pull origin frontend
-```
-if any dependencies have changed go back to step 3.
-
-6. **Working on your assigned branch**
-
-switch to your assigned page or feature branch:
-example:
-```text
-git switch page/dashboard
-```
-if for some reason the branch is not available locally, fetch remote branches first:
-```text
-git fetch origin
-git switch --track origin/page/dashboard
-```
-
-after making changes, commit and push them:
-```text
-git add .
-git commit -m "Describe your changes"
-git push
-```
-
-
-## Features
-##### Dashboard
-*page/dashboard* - Anthony
- - Display overview of live network activity
- - Show traffic graphs, packet counts, and bandwidth usage
- - Display security alerts and network statistics
-
-##### Packet Viewer
-*page/packet-viewer* -- Will
- - Display captured packets in a real-time table
- - Filter packets by protocol, IP address, or port
- - Select packets to inspect detailed header and protocol information
-
-##### Device Management
-*page/device-management*
- - Display discovered devices on the local network
- - Show IP addresses, MAC addresses, and hostnames
- - Allow users to label known devices and identify new/unknown devices
-
-##### Security Alerts
-*page/security-alerts*
- - Display detected threats and suspicious network activity
- - Show security warnings, timestamps, and alert history
- - Allow users to configure security alert thresholds
-
-##### Log Viewer
-*page/log-viewer*
- - View saved packet captures and security logs
- - Browse and inspect previously captured packet data
- - Export packet captures for later analysis
-
-##### Settings
-*page/settings*
- - Select network interfaces for packet capture
- - Configure capture preferences and application settings
- - Manage network monitoring and display preferences
-
-##### App Shell
-*feature/app-shell* -- George
- - Create the main application layout and navigation sidebar
- - Set up React routing between pages
- - Implement shared UI components, styling, and themes
- - Integrate Electron with the React application
- - Include Notification bell icon on the top right that when clicked shows a dropdown menu with notifications and can click show all to view a popup window that displays notifs. also includes a button for clear all notifications or to clear specific notifications.
-
-### Branch Organization
-```
 main
+├── backend
+│   ├── feature/packet-capture
+│   ├── feature/protocol-parser
+│   ├── feature/packet-filtering
+│   ├── feature/network-discovery
+│   ├── feature/traffic-statistics
+│   ├── feature/security-monitoring
+│   ├── feature/packet-storage
+│   └── feature/backend-api
+│
 └── frontend
     ├── feature/app-shell
     ├── page/dashboard
@@ -149,9 +121,20 @@ main
     └── page/settings
 ```
 
-##### Workflow
- 1. Switch to your assigned page/feature branch
- 2. Implement & test changes
- 3. Open pull request targeting frontend
- 4. Review and merge approved changes
- 5. Periodically integrate frontend with main when things are working well.
+*Branch hierarchy represents the intended development workflow.*
+
+##  Development Workflow
+
+1. Develop functionality on the assigned feature or page branch.
+2. Test changes before submitting a pull request.
+3. Merge approved changes into `backend` or `frontend`.
+4. Integrate completed and tested components into `main`.
+5. Keep `main` as the stable, integrated version of NetSentinel.
+
+---
+
+### 📌 Project Status
+
+**In Development** 
+
+**NetSentinel | Software Engineering Team 5 — Fall 2026**
