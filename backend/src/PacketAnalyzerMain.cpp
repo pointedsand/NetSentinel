@@ -1,5 +1,5 @@
 #include <iostream>
-#include "packet_analyzer.h"
+#include "packet_analyzer.hpp"
 
 static void print_direction(const std::string& label, const DirectionStats& d) {
     std::cout << label << ": " << d.packet_count << " packets, "
