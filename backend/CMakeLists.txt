@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(NetSentinel LANGUAGES CXX)
 
-# use c++17 for std::optional 
+# use c++17 for std::optional
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -72,7 +72,7 @@ if(BUILD_TESTING)
 
     add_test(NAME ProtocolParserTests COMMAND parser_tests)
 
-        add_executable(packet_filtering_tests
+    add_executable(packet_filtering_tests
         tests/PacketFilteringTests.cpp
         src/PacketFiltering.cpp
     )

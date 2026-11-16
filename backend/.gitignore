@@ -1,0 +1,9 @@
+#cmake build directory
+/build/
+
+#compiled executables
+*.exe
+
+#object files
+*.o
+*.obj
