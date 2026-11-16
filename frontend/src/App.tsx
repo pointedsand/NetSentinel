@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import netSentinelMark from './assets/netsentinel-mark.png';
 import './App.css';
+import { LogViewerPage } from './pages/LogViewerPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 type PageId = 'dashboard' | 'packets' | 'devices' | 'alerts' | 'logs' | 'settings';
 type TimeRange = '2m' | '1h' | '1d';
@@ -651,9 +653,9 @@ export function App() {
           case 'alerts':
             return <div><h1>Security Warnings</h1><p>Alert logs go here.</p></div>;
           case 'logs':
-            return <div><h1>Log Viewer</h1><p>Clear historical logs interface goes here.</p></div>;
+            return <LogViewerPage />;
           case 'settings':
-            return <div><h1>Configuration Settings</h1><p>Startup & threshold config forms go here.</p></div>;
+            return <SettingsPage />;
           default:
             return <Dashboard packets={packets} />;
         }
