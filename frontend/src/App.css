@@ -165,7 +165,7 @@
   padding: 8px 11px;
 }
 
-.demo-badge > span {
+.demo-badge > span[aria-hidden='true'] {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -477,6 +477,10 @@
   }
 }
 
+.metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 700px) {
   .metric-grid,
   .overview-grid {
@@ -515,4 +519,57 @@
   .demo-badge {
     margin-top: 0;
   }
+}
+
+.session-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.session-controls button {
+  padding: 8px 16px;
+  border: 1px solid #2b4560;
+  border-radius: 8px;
+  background: #141b27;
+  color: #93c7ff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.session-controls button:disabled {
+  border-color: #29384b;
+  color: #5d6b82;
+  cursor: not-allowed;
+}
+
+.error-banner,
+.idle-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.error-banner {
+  border: 1px solid #6b2f3a;
+  background: #2a1820;
+  color: #f0a6b2;
+}
+
+.error-banner button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.idle-warning {
+  border: 1px solid #5c4a28;
+  background: #231d12;
+  color: #eab96d;
 }
