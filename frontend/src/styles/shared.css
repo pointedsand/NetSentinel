@@ -1,0 +1,194 @@
+/* Modal Styling */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-box {
+  background: #1b2434;
+  border: 1px solid #32425c;
+  border-radius: 12px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 24px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #29384b;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #f1f5ff;
+  font-size: 16px;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: #8998b2;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.modal-close:hover {
+  color: #fff;
+}
+
+.form-row {
+  margin-bottom: 16px;
+}
+
+.form-row label {
+  display: block;
+  font-size: 12px;
+  color: #8998b2;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.modal-select {
+  width: 100%;
+  background: #0d1119;
+  border: 1px solid #293247;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #e8edf7;
+  font-family: inherit;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: #dce5f2;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: normal;
+  color: #dce5f2;
+  cursor: pointer;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  border-top: 1px solid #29384b;
+  padding-top: 16px;
+}
+
+.btn-cancel, .btn-export {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  background: #222d3f;
+  border: 1px solid #32425c;
+  color: #cbd3e2;
+}
+
+.btn-cancel:hover {
+  background: #2b3950;
+  color: #fff;
+}
+
+.btn-export {
+  background: #2563eb;
+  border: none;
+  color: #fff;
+}
+
+.btn-export:hover {
+  background: #1d4ed8;
+}
+
+/* Session controls and status banners (DashboardPage, UC9/UC10) */
+.session-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.session-controls button {
+  padding: 8px 16px;
+  border: 1px solid #2b4560;
+  border-radius: 8px;
+  background: #141b27;
+  color: #93c7ff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.session-controls button:disabled {
+  border-color: #29384b;
+  color: #5d6b82;
+  cursor: not-allowed;
+}
+
+.error-banner,
+.idle-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.error-banner {
+  border: 1px solid #6b2f3a;
+  background: #2a1820;
+  color: #f0a6b2;
+}
+
+.error-banner button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.idle-warning {
+  border: 1px solid #5c4a28;
+  background: #231d12;
+  color: #eab96d;
+}
+
+@media (max-width: 480px) {
+  .modal-footer {
+    flex-wrap: wrap;
+  }
+
+  .modal-footer > button {
+    flex: 1 1 auto;
+  }
+
+  .dashboard-card {
+    padding: 16px;
+  }
+}
