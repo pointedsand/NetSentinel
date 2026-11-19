@@ -1,0 +1,270 @@
+/* Live Packet Capture Styles */
+.packet-capture-view {
+  font-family: monospace;
+}
+
+.capture-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #252f40;
+  padding-bottom: 16px;
+}
+
+.capture-header-bar h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #f1f5ff;
+}
+
+.back-link {
+  background: transparent;
+  border: none;
+  color: #8998b2;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.back-link:hover {
+  color: #fff;
+}
+
+.time-display {
+  color: #8998b2;
+  font-size: 13px;
+}
+
+.capture-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #141b27;
+  border: 1px solid #252f40;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbar-left, .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.control-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  color: #fff;
+}
+
+.btn-stop {
+  background: #dc2626;
+}
+
+.btn-stop:hover {
+  background: #b91c1c;
+}
+
+.btn-start {
+  background: #16a34a;
+}
+
+.btn-start:hover {
+  background: #15803d;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #99a6bb;
+  font-size: 13px;
+}
+
+.filter-input {
+  background: #0d1119;
+  border: 1px solid #293247;
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: #e8edf7;
+  font-family: inherit;
+  font-size: 13px;
+  width: 240px;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #76b8f5;
+}
+
+.packet-counter {
+  font-size: 13px;
+  color: #99a6bb;
+}
+
+.packet-counter strong {
+  color: #fff;
+}
+
+.status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.status-started {
+  background: #064e3b;
+  color: #34d399;
+}
+
+.status-paused {
+  background: #78350f;
+  color: #fbbf24;
+}
+
+.tool-btn {
+  background: #1f293d;
+  border: 1px solid #2f3e56;
+  color: #cbd3e2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tool-btn:hover {
+  background: #29384b;
+  color: #fff;
+}
+
+.packet-table-container {
+  background: #141b27;
+  border: 1px solid #252f40;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.packet-virtualized-container {
+  max-height: 600px;
+  overflow: auto;
+}
+
+.packet-virtualized-container .packet-table {
+  min-width: 800px;
+}
+
+.packet-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.packet-table th {
+  background: #1a2333;
+  color: #8998b2;
+  padding: 12px 16px;
+  font-weight: 600;
+  border-bottom: 1px solid #252f40;
+}
+
+.packet-virtualized-container .packet-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 16px;
+  line-height: 16px;
+}
+
+.packet-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f293d;
+  color: #dce5f2;
+}
+
+.packet-virtualized-container .packet-table tbody tr:not(.packet-virtual-spacer) td {
+  height: 16px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.packet-virtual-spacer td {
+  padding: 0;
+  border: 0;
+  line-height: 0;
+}
+
+.packet-table tr:hover {
+  background: #182232;
+}
+
+.row-num {
+  color: #71819a;
+}
+
+.protocol-cell {
+  color: #76b8f5;
+  font-weight: 600;
+}
+
+.name-cell {
+  color: #38bdf8;
+}
+
+.time-cell {
+  color: #99a6bb;
+}
+
+.no-data {
+  text-align: center;
+  padding: 30px;
+  color: #8998b2;
+}
+
+@media (max-width: 700px) {
+  .capture-header-bar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .capture-header-bar h2 {
+    flex: 1 1 100%;
+    order: -1;
+    font-size: clamp(17px, 5vw, 20px);
+  }
+
+  .capture-toolbar,
+  .toolbar-left,
+  .toolbar-right {
+    align-items: stretch;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+  }
+
+  .filter-group {
+    flex: 1 1 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filter-input {
+    width: 100%;
+    min-width: 0;
+  }
+}

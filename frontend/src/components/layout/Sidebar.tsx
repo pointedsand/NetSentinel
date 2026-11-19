@@ -1,16 +1,16 @@
 import React from 'react';
 
-// Represents the available application pages that can be selected from the sidebar.
+/** Route identifiers used by the alternate sidebar prototype. */
 export type PageId = 'dashboard' | 'packets' | 'devices' | 'alerts' | 'logs' | 'settings';
 
-// Props passed to the sidebar so it can reflect the active page and notify parent changes.
+/** Props for the sidebar navigation control. */
 interface SidebarProps {
   activePage: PageId;
   onSelectPage: (page: PageId) => void;
 }
 
+/** Renders the page navigation for the alternate AppShell prototype. */
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, onSelectPage }) => {
-  // Navigation items shown in the left rail. Each item maps to a page id, display label, and emoji icon.
   const navItems: { id: PageId; label: string; icon: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'packets', label: 'Packets', icon: '📦' },
@@ -22,12 +22,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, onSelectPage }) =>
 
   return (
     <aside style={{ width: '220px', backgroundColor: '#1e1e2e', color: '#fff', height: '100vh', padding: '1rem', boxSizing: 'border-box' }}>
-      {/* Brand title shown at the top of the menu. */}
       <h2 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         🛡️ NetSentinel
       </h2>
 
-      {/* Main navigation list for switching between core monitoring sections. */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {navItems.map((item) => (
           <button

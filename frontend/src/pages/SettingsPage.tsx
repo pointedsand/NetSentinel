@@ -1,9 +1,8 @@
 /**
  * Module: SettingsPage.tsx
  * Author: George Salmi
- * Implements: UC12 (Configuration Startup) & FR26 (Load startup configuration from external file)
- * Purpose: Parses and validates startup configuration parameters (config.json), applies valid
- *          settings to the UI, and safely falls back to default values on invalid input.
+ * Demonstrates startup configuration parsing and in-page editing. The current
+ * frontend does not load config.json from disk or apply values to the backend.
  */
 import React, { useState } from 'react';
 
@@ -15,7 +14,7 @@ export interface StartupConfig {
   logRetentionDays: number;
 }
 
-// Default values are used when no valid external config is available or the file is malformed.
+// Safe fallback values are used when supplied configuration JSON is malformed.
 export const SAFE_DEFAULT_CONFIG: StartupConfig = {
   defaultInterface: 'eth0',
   bandwidthAlertThresholdMbps: 50,
@@ -23,8 +22,10 @@ export const SAFE_DEFAULT_CONFIG: StartupConfig = {
   logRetentionDays: 14,
 };
 
-// Reads the JSON payload from config.json, validates the required fields, and returns either
-// the parsed values or a safe fallback plus an error banner message.
+/**
+ * Validates supplied JSON and returns parsed settings or a safe fallback with a status message.
+ * When omitted, rawJson produces the sample startup configuration used by the demo.
+ */
 export function parseStartupConfig(rawJson?: string): { config: StartupConfig; banner: string; isError: boolean } {
   if (!rawJson) {
     return {
@@ -68,9 +69,10 @@ export function parseStartupConfig(rawJson?: string): { config: StartupConfig; b
 
 interface SettingsPageProps {
   rawConfigJson?: string;
+  onNavigateDashboard?: () => void;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNavigateDashboard }) => {
   // Parse the startup config once and use it as the initial form state.
   const initial = parseStartupConfig(rawConfigJson);
 
@@ -83,7 +85,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson }) => 
   // Tracks whether the loaded configuration is valid or has fallen back to safe defaults.
   const [isError, setIsError] = useState<boolean>(initial.isError);
 
-  // Saves the current values and clears any invalid-config warning after a successful update.
+  // Updates the local form status; persistence and backend application are not wired yet.
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setIsError(false);
@@ -92,12 +94,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson }) => 
 
   return (
     <div className="dashboard">
-      <div className="dashboard-heading">
-        <div>
+      <div className="dashboard-heading page-heading-centered">
+        <div className="page-heading-back">
+          {onNavigateDashboard && (
+            <button type="button" onClick={onNavigateDashboard} className="back-link">
+              &lt; Dashboard
+            </button>
+          )}
+        </div>
+        <div className="page-heading-title">
           <span className="eyebrow">SYSTEM PREFERENCES (UC12)</span>
           <h1>Configuration Settings</h1>
           <p>Startup parameters loaded automatically from external config.json on launch.</p>
         </div>
+        <div className="page-heading-actions" aria-hidden="true" />
       </div>
 
       <section className="dashboard-card" style={{ maxWidth: '640px' }}>
