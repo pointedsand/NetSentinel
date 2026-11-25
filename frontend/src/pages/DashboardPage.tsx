@@ -28,7 +28,8 @@ const EMPTY_TELEMETRY: TelemetryMessage = { packetCount: 0, bandwidthMbps: 0, ac
 const defaultClient = createWebSocketClient();
 
 /**
- * Dashboard page.
+ * Separate backend telemetry/session-control page; App navigation currently
+ * renders DashboardOverview for the simulated overview.
  * @param client Telemetry/control transport; defaults to the WebSocket client.
  */
 function DashboardPage({ client = defaultClient }: { client?: TelemetryClient }) {
