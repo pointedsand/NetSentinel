@@ -1,3 +1,4 @@
+import { downloadFile } from '../services/browserFiles';
 /**
  * Module: LogViewerPage.tsx
  * Author: George Salmi
@@ -8,6 +9,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { AlertItem } from './alertTypes';
 import { createSeedAlerts } from './alertTypes';
 import { SIMULATED_DEVICES } from '../simulationData';
+import { importPackets, type ImportedLog } from './importPackets';
 import type { Packet } from '../types';
 
 // Describes one archived packet capture stored in the local log history.
@@ -34,20 +36,15 @@ interface SecurityEventRecord {
 
 // Allows the page to receive an initial list of logs for testing or integration scenarios.
 interface LogViewerPageProps {
+  importedLog?: ImportedLog | null;
+  onImport?: (log: ImportedLog) => void;
+  monitoringEvents?: import('../types').SecurityEvent[];
+  archiveUnavailable?: boolean;
   packets?: Packet[];
   alerts?: AlertItem[];
   setAlerts?: React.Dispatch<React.SetStateAction<AlertItem[]>>;
   initialLogs?: PacketLogRecord[];
   initialSecurityEvents?: SecurityEventRecord[];
-}
-
-interface LogFilePickerOptions {
-  multiple: boolean;
-  startIn: 'downloads';
-  types: Array<{
-    description: string;
-    accept: Record<string, string[]>;
-  }>;
 }
 
 // Sample log records shown when the page is first opened without external data.
@@ -115,6 +112,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   packets,
   alerts,
   setAlerts,
+  archiveUnavailable = false, importedLog, onImport, monitoringEvents,
   initialLogs = DEFAULT_LOGS,
   initialSecurityEvents = DEFAULT_SECURITY_EVENTS,
 }) => {
@@ -132,7 +130,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
 
   // Message displayed after a successful log cleanup so the empty state is clear to the user.
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const securityEvents = useMemo(() => alerts
+  const securityEvents = useMemo(() => monitoringEvents ? monitoringEvents.map(e=>({id:e.id,timestamp:e.time,severity:e.severity,message:e.evidence,source:e.origin+' · '+e.source,alertType:e.type,deviceName:[e.ip,e.mac].filter(Boolean).join(' · ')})) : alerts
     ? alerts.map((alert) => ({
       id: alert.id,
       timestamp: alert.timestamp,
@@ -142,7 +140,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
       alertType: alert.alertType,
       deviceName: alert.deviceName,
     }))
-    : localSecurityEvents, [alerts, localSecurityEvents]);
+    : localSecurityEvents, [alerts, localSecurityEvents, monitoringEvents]);
   const captureLogs = useMemo(() => packets
     ? createCaptureLogs(packets).filter((log) => !removedLogIds.has(log.id))
     : logs, [logs, packets, removedLogIds]);
@@ -190,48 +188,27 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
       ['File Name', 'Device', 'IP Address', 'Primary Protocol', 'Size (MB)', 'Archived At', 'Compression Status'],
       [log.fileName, log.deviceName ?? '', log.ipAddress ?? '', log.protocol, log.sizeMB.toFixed(1), log.timestamp, log.compressed ? 'Compressed (.gz)' : 'Uncompressed'],
     ].map((row) => row.map((field) => `"${String(field).replaceAll('"', '""')}"`).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${log.fileName.replace(/\.[^.]+$/, '')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    downloadFile(log.fileName.replace(/\.[^.]+$/, '')+'.csv', csv, 'text/csv;charset=utf-8');
   };
 
-  const handleUploadClick = async () => {
-    const filePickerWindow = window as Window & {
-      showOpenFilePicker?: (options: LogFilePickerOptions) => Promise<unknown[]>;
-    };
-
-    if (!filePickerWindow.showOpenFilePicker) {
-      uploadInputRef.current?.click();
-      return;
-    }
-
-    // The picker is currently a UI affordance only; chosen file contents are not imported.
+  const [localImport, setLocalImport] = useState<ImportedLog | null>(null);
+  const [importError, setImportError] = useState('');
+  const pageSize = 20;
+  const [importPage, setImportPage] = useState(0);
+  const imported = importedLog ?? localImport;
+  const loadFile = async (file?: File) => {
+    if (!file) return;
     try {
-      await filePickerWindow.showOpenFilePicker({
-        multiple: true,
-        startIn: 'downloads',
-        types: [{
-          description: 'NetSentinel Logs (PCAP, CSV, JSON)',
-          accept: {
-            'application/vnd.tcpdump.pcap': ['.pcap', '.pcapng'],
-            'text/csv': ['.csv'],
-            'application/json': ['.json'],
-          },
-        }],
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return;
-      }
-
-      console.warn('Native log file picker failed; opening the standard file picker instead.', error);
-      uploadInputRef.current?.click();
-    }
+      if (file.size > 4 * 1024 * 1024) throw Error('Maximum import size is 4 MiB.');
+      const result = importPackets(file.name, await file.text());
+      (onImport ?? setLocalImport)(result);
+      setImportPage(0); setImportError('');
+    } catch (error) { setImportError(error instanceof Error ? error.message : 'Import failed'); }
+  };
+  const handleUploadClick = () => {
+    // Previous native-picker behavior:
+    // The picker is currently a UI affordance only; chosen file contents are not imported.
+    uploadInputRef.current?.click();
   };
 
   return (
@@ -241,14 +218,15 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
         <div className="page-heading-title">
           <span className="eyebrow">STORAGE & LOG MANAGEMENT (UC11)</span>
           <h1>Log Viewer</h1>
-          <p>Manage archived capture files and clear historical logs to free local storage.</p>
+          <p>{archiveUnavailable ? 'Import a packet CSV or JSON export to inspect it here. Review the full security event history in Alerts.' : 'Manage archived capture files and clear historical logs to free local storage.'}</p>
         </div>
 
         <div className="page-heading-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input
             ref={uploadInputRef}
             type="file"
-            accept=".pcap,.pcapng,.csv,.json"
+            accept=".csv,.json"
+            onChange={event => { void loadFile(event.target.files?.[0]); event.target.value = ''; }}
             aria-label="Choose log files to upload"
             style={{ display: 'none' }}
           />
@@ -265,7 +243,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
             type="button"
             className="tool-btn"
             onClick={() => setShowConfirmModal(true)}
-            disabled={activeCount === 0}
+            disabled={archiveUnavailable || activeCount === 0}
             style={{
               backgroundColor: activeCount === 0 ? undefined : 'rgba(239, 68, 68, 0.16)',
               color: activeCount === 0 ? undefined : '#f87171',
@@ -279,6 +257,15 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
         </div>
       </div>
 
+      {importError && <p role="alert">{importError}</p>}
+      {imported && <section className="dashboard-card imported-log"><h2>Imported metadata · {imported.name}</h2>
+        <p>{imported.packets.length} imported rows · excluded from live statistics and security monitoring</p>
+        <div className="packet-table-container log-scroll"><table className="packet-table"><thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Size</th><th>Name</th></tr></thead>
+        <tbody>{imported.packets.slice(importPage*pageSize,(importPage+1)*pageSize).map((p,i)=><tr key={i}><td>{p.time}</td><td>{p.source}</td><td>{p.destination}</td><td>{p.protocol}</td><td>{p.size}</td><td>{p.name}</td></tr>)}</tbody></table></div>
+        <div className="log-pagination"><span>Page {importPage+1} of {Math.max(1,Math.ceil(imported.packets.length/pageSize))}</span>
+        <button className="tool-btn" disabled={!importPage} onClick={()=>setImportPage(importPage-1)}>Previous</button>
+        <button className="tool-btn" disabled={(importPage+1)*pageSize >= imported.packets.length} onClick={()=>setImportPage(importPage+1)}>Next</button></div>
+      </section>}
       <section className="dashboard-card">
         <div className="logs-tabs" role="tablist" aria-label="Log type">
           <button
@@ -337,17 +324,17 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
               </label>
             </div>
             <p className="logs-storage-summary" role="status">
-              Total Storage Used: {totalStorageMB.toFixed(1)} MB across {logs.length} files
+              {archiveUnavailable ? 'Archive storage unavailable' : `Total Storage Used: ${totalStorageMB.toFixed(1)} MB across ${logs.length} files`}
             </p>
             <p className="logs-demo-note">
-              Storage totals and compression badges reflect simulated archive metadata, not on-disk files.
+              {archiveUnavailable ? 'No archive service connected.' : 'Storage totals and compression badges reflect simulated archive metadata, not on-disk files.'}
             </p>
             {logs.length === 0 ? (
               <div className="logs-empty-state">
-                {statusMessage || 'No historical logs available. Storage cleared.'}
+                {statusMessage || (archiveUnavailable ? 'No archived captures.' : 'No historical logs available. Storage cleared.')}
               </div>
             ) : (
-              <div className="packet-table-container">
+              <div className="packet-table-container log-scroll">
                 <table className="packet-table logs-table">
                   <thead>
                     <tr>
@@ -410,7 +397,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
               {statusMessage || 'No security event logs available.'}
             </div>
           ) : (
-            <div className="packet-table-container">
+            <div className="packet-table-container log-scroll">
               <table className="packet-table logs-table">
                 <thead>
                   <tr><th>Timestamp</th><th>Severity</th><th>Alert Type</th><th>Event</th><th>Source</th><th>Device</th></tr>

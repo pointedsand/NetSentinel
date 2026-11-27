@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { LogViewerPage } from '../LogViewerPage';
-import { SettingsPage, parseStartupConfig, SAFE_DEFAULT_CONFIG } from '../SettingsPage';
+import { SettingsPage } from '../SettingsPage';
+import { parseStartupConfig, SAFE_DEFAULT_CONFIG } from '../startupConfig';
 
 describe('UC11: Log Cleanup (LogViewerPage)', () => {
   const macBookCapture = 'capture_192-168-1-10_MacBook-Pro.pcap';
@@ -122,40 +123,26 @@ describe('UC11: Log Cleanup (LogViewerPage)', () => {
     expect(screen.getByText(macBookCapture)).toBeTruthy();
   });
 
-  it('opens the file picker for PCAP, CSV, and JSON files when Upload is clicked', () => {
+  it('opens the file picker for CSV and JSON packet metadata when Upload is clicked', () => {
     render(<LogViewerPage />);
     const fileInput = screen.getByLabelText('Choose log files to upload') as HTMLInputElement;
     const clickSpy = vi.spyOn(fileInput, 'click');
 
-    expect(fileInput.accept).toBe('.pcap,.pcapng,.csv,.json');
+    expect(fileInput.accept).toBe('.csv,.json');
     fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
     expect(clickSpy).toHaveBeenCalledOnce();
   });
 
-  it('uses the labeled native file picker and starts in Downloads when available', async () => {
-    const showOpenFilePicker = vi.fn().mockResolvedValue([]);
-    vi.stubGlobal('showOpenFilePicker', showOpenFilePicker);
-    render(<LogViewerPage />);
-
+  it('uses the file input even when the browser exposes a restricted native picker', () => {
+    const native = vi.fn();
+    vi.stubGlobal('showOpenFilePicker',native);
     try {
-      fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
-      await waitFor(() => expect(showOpenFilePicker).toHaveBeenCalledOnce());
-
-      expect(showOpenFilePicker).toHaveBeenCalledWith({
-        multiple: true,
-        startIn: 'downloads',
-        types: [{
-          description: 'NetSentinel Logs (PCAP, CSV, JSON)',
-          accept: {
-            'application/vnd.tcpdump.pcap': ['.pcap', '.pcapng'],
-            'text/csv': ['.csv'],
-            'application/json': ['.json'],
-          },
-        }],
-      });
-    } finally {
-      vi.unstubAllGlobals();
-    }
+      render(<LogViewerPage />);
+      const select = vi.spyOn(screen.getByLabelText('Choose log files to upload'),'click');
+      fireEvent.click(screen.getByRole('button',{name:'Upload'}));
+      expect(select).toHaveBeenCalledOnce();
+      expect(native).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
   });
 });
 

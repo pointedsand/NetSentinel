@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Packet } from '../types';
+import type { Capture } from '../hooks/useCapture';
+import { interfaceName } from '../deviceIdentity';
+import { LocalInventory } from '../components/LocalInventory';
+import type { LocalDevice, Packet } from '../types';
 import { SIMULATED_DEVICES } from '../simulationData';
 
 type DeviceFilter = 'all' | 'online' | 'offline' | 'flagged';
@@ -24,6 +27,9 @@ interface DeviceActivity {
 }
 
 interface DevicesPageProps {
+  onDevicePackets?: (d: LocalDevice) => void;
+  observed?: boolean;
+  capture?: Capture;
   packets: Packet[];
   onNavigateDashboard: () => void;
 }
@@ -62,7 +68,9 @@ function formatUsage(bytes: number): string {
   return megabytes >= 1024 ? `${(megabytes / 1024).toFixed(2)} GB` : `${megabytes.toFixed(1)} MB`;
 }
 
-export const DevicesPage: React.FC<DevicesPageProps> = ({ packets, onNavigateDashboard }) => {
+export const DevicesPage: React.FC<DevicesPageProps> = props => props.observed ? <ObservedDevices {...props} /> : <DemoDevices {...props} />;
+
+const DemoDevices: React.FC<DevicesPageProps> = ({ packets, onNavigateDashboard }) => {
   const [devices, setDevices] = useState<DeviceRecord[]>(() => createInitialDevices(packets));
   const [searchText, setSearchText] = useState('');
   const [deviceFilter, setDeviceFilter] = useState<DeviceFilter>('all');
@@ -457,3 +465,48 @@ export const DevicesPage: React.FC<DevicesPageProps> = ({ packets, onNavigateDas
     </div>
   );
 };
+
+const addressOrder = new Intl.Collator(undefined, { numeric: true });
+
+function ObservedDevices({ packets,onNavigateDashboard,capture,onDevicePackets }: DevicesPageProps) {
+  const [query,search] = useState('');
+  const [order,setOrder] = useState('recent');
+  const names = {...capture?.sourceNames,...capture?.monitor?.interfaceNames};
+  const hosts = useMemo(() => {
+    const result = new Map<string,{address:string;name:string;source:string;last:number;frames:number}>();
+    for (const packet of packets) {
+      const d = packet.details;
+      if (!d) continue;
+      for (const address of new Set([d.source,d.destination])) {
+        if (!address) continue;
+        const key = JSON.stringify([d.captureSource,address]);
+        const host = result.get(key) ?? {address,name:'',source:d.captureSource,last:0,frames:0};
+        host.frames++;
+        host.last = Math.max(host.last,packet.timestamp);
+        host.name ||= (address === d.source ? d.sourceHostname : d.destinationHostname) || '';
+        result.set(key,host);
+      }
+    }
+    return [...result.values()];
+  },[packets]);
+  const term = query.trim().toLowerCase();
+  const matches = hosts.filter(h => [h.address,h.name,h.source,interfaceName(h.source,names)].some(s => s.toLowerCase().includes(term)));
+  matches.sort((a,b) => order === 'address' ? addressOrder.compare(a.address,b.address) :
+    order === 'frames' ? b.frames-a.frames : b.last-a.last);
+  return <section className="dashboard devices-page live-devices">
+    <header className="inventory-page-heading"><div><button className="back-link" onClick={onNavigateDashboard}>&lt; Dashboard</button>
+      <h1>Observed devices</h1></div></header>
+    {capture && <LocalInventory capture={capture} onPackets={onDevicePackets} />}
+    <section className="dashboard-card endpoint-panel"><header className="inventory-toolbar">
+      <div><h2>Observed endpoints</h2><p>Local and remote IPs in retained packets</p></div>
+      <div className="inventory-filters">
+        <input aria-label="Search endpoints" placeholder="Search endpoints…" type="search" className="filter-input" value={query} onChange={e=>search(e.target.value)}/>
+        <select aria-label="Sort endpoints" className="modal-select" value={order} onChange={e=>setOrder(e.target.value)}>
+          <option value="recent">Last observed</option><option value="frames">Most packets</option><option value="address">IP address</option>
+        </select>
+      </div></header>
+      <div className="endpoint-scroll" tabIndex={0} aria-label="Observed endpoint records"><table className="packet-table"><thead><tr>{['IP address','Reverse DNS','Interface','Packets','Last observed'].map(h=><th key={h}>{h}</th>)}</tr></thead>
+      <tbody>{matches.map(h=><tr key={JSON.stringify([h.source,h.address])}><td title={h.address}>{h.address}</td><td title={h.name}>{h.name || '—'}</td><td title={h.source}>{interfaceName(h.source,names)}</td><td>{h.frames}</td><td title={formatTimestamp(h.last)}>{formatTimestamp(h.last)}</td></tr>)}</tbody></table></div>
+      {!matches.length && <p>No matching endpoints in retained packets.</p>}</section>
+  </section>;
+}

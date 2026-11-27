@@ -31,7 +31,7 @@ export function createExportFile(data: Packet[], format: ExportFormat): ExportFi
       packet.destination,
       packet.protocol,
       `"${packet.size}"`,
-      `"${packet.name}"`,
+      `"${packet.name.replaceAll('"', '""')}"`,
       packet.timestamp,
       `"${packet.time}"`,
     ]);

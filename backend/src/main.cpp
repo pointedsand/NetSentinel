@@ -40,6 +40,7 @@ void print_packets(const std::vector<ParsedPacket>& packets) {
 }
 
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--list-interfaces") return print_interface_names();
     if (argc > 1) return stream_capture(argc, argv);
     std:: string device_name = select_network_interface();
 

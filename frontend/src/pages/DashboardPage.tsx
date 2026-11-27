@@ -265,23 +265,26 @@ function DashboardPage({ client = defaultClient }: { client?: TelemetryClient })
   );
 }
 
-export function TrafficSummary({ telemetry }: { telemetry: TelemetryMessage }) {
+export function TrafficSummary({ telemetry, captureMode }: { telemetry: TelemetryMessage; captureMode?: string }) {
+  const mbps = captureMode ? telemetry.rollingMbps ?? 0 : telemetry.bandwidthMbps;
+  const useKbps = Boolean(captureMode) && mbps < 1;
+  const displayRate = useKbps ? (mbps * 1000).toFixed(1) : mbps.toFixed(captureMode ? 2 : 1);
   return (
       <section className="metric-grid" aria-label="Traffic summary">
         <article className="dashboard-card metric-card">
           <div className="card-kicker">PACKETS CAPTURED</div>
           <div className="metric-value" aria-live="polite" data-testid="packet-count">{telemetry.packetCount.toLocaleString()}</div>
-          <p className="metric-note">Live count from backend telemetry</p>
+          <p className="metric-note">{captureMode ? 'All frames across capture sessions' : 'Live count from backend telemetry'}</p>
         </article>
         <article className="dashboard-card metric-card">
           <div className="card-kicker">BANDWIDTH</div>
-          <div className="metric-value" data-testid="bandwidth">{telemetry.bandwidthMbps.toFixed(1)} <span>Mbps</span></div>
-          <p className="metric-note">Live bandwidth from backend telemetry</p>
+          <div className="metric-value" data-testid="bandwidth">{displayRate} <span>{useKbps ? 'kbps' : 'Mbps'}</span></div>
+          <p className="metric-note">{captureMode === '--replay' ? 'Recent replay processing throughput' : captureMode ? 'Recent capture throughput · 3-second window' : 'Live bandwidth from backend telemetry'}</p>
         </article>
         <article className="dashboard-card metric-card">
           <div className="card-kicker">ACTIVE CONNECTIONS</div>
           <div className="metric-value" data-testid="active-connections">{telemetry.activeConnections.toLocaleString()}</div>
-          <p className="metric-note">Live connections from backend telemetry</p>
+          <p className="metric-note">{captureMode ? 'Recent TCP/UDP flows in the latest session' : 'Live connections from backend telemetry'}</p>
         </article>
       </section>
   );

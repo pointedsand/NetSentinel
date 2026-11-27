@@ -84,7 +84,11 @@ void write_details(const FrameDetails& d) {
         if (n) std::cout << ",\"" << key << "\":" << +*n;
     };
     text("sourceMac",d.source_mac); text("destinationMac",d.destination_mac);
+    text("neighborIp",d.neighbor_ip); text("neighborMac",d.neighbor_mac);
     text("network",d.network); text("transport",d.transport); text("application",d.application);
+    text("netbiosName",d.netbios_name);
+    number("netbiosTtl",d.netbios_ttl);
+    text("dhcpHostname",d.dhcp_hostname);
     text("payloadStatus",d.payload_status);
     text("decodeStatus",d.status); text("sni",d.sni); text("dnsQuestion",d.dns_question);
     number("etherType",d.ether_type); number("ipVersion",d.ip_version);
@@ -106,6 +110,7 @@ void write_batch(const std::vector<CaptureRecord>& records, const TrafficTotals&
     std::cout << R"({"type":"batch","packetCount":)" << stats.parsed.packet_count
               << R"(,"activeConnections":)" << stats.active_connections
               << R"(,"elapsedSeconds":)" << seconds
+              << R"(,"wireBytes":)" << stats.wire_bytes
               << R"(,"bytes":)" << stats.parsed.total_bytes
               << R"(,"bandwidthMbps":)" << stats.megabits_per_second(seconds)
               << R"(,"filtered":)" << stats.filtered << R"(,"rejected":)" << stats.rejected

@@ -5,6 +5,7 @@
 
 //void list_network_interfaces();
 std::string select_network_interface();
+int print_interface_names();
 
 
 /*

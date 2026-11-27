@@ -12,13 +12,13 @@ export class Hostnames {
     this.closed = false;
   }
 
-  get(ip) {
+  get(ip,key = ip) {
     if (!ip || this.closed) return null;
-    const hit = this.cache.get(ip);
+    const hit = this.cache.get(key);
     if (hit && hit.expires > this.now()) return hit.name;
-    if (!this.pending.has(ip) && this.pending.size < this.pendingLimit) {
-      this.pending.add(ip);
-      this.queue.push(ip);
+    if (!this.pending.has(key) && this.pending.size < this.pendingLimit) {
+      this.pending.add(key);
+      this.queue.push({ip,key});
       this.pump();
     }
     return null;
@@ -26,24 +26,24 @@ export class Hostnames {
 
   pump() {
     while (!this.closed && this.active < this.concurrency && this.queue.length) {
-      const ip = this.queue.shift();
+      const {ip,key} = this.queue.shift();
       this.active++;
-      this.lookup(ip);
+      this.lookup(ip,key);
     }
   }
 
-  async lookup(ip) {
+  async lookup(ip,key) {
     let name = null;
     try { name = (await this.resolver.reverse(ip))[0] || null; }
     catch { /* Missing PTR and timeout both use the negative cache. */ }
     if (!this.closed) {
-      this.cache.delete(ip);
+      this.cache.delete(key);
       if (this.cache.size >= this.capacity) this.cache.delete(this.cache.keys().next().value);
-      this.cache.set(ip, { name, expires: this.now() + (name ? 300000 : 30000) });
-      if (name) this.onResult(ip,name);
+      this.cache.set(key, { name, expires: this.now() + (name ? 300000 : 30000) });
+      if (name) this.onResult(ip,name,key);
     }
     this.active--;
-    this.pending.delete(ip);
+    this.pending.delete(key);
     this.pump();
   }
 

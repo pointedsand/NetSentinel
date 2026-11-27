@@ -3,10 +3,11 @@ import netSentinelMark from '../assets/netsentinel-mark.png';
 import { NetworkAuthorizationPanel } from '../components/NetworkAuthorizationPanel';
 
 interface AuthPageProps {
+  onSimulation: () => void;
   onContinue: () => void;
 }
 
-export function AuthPage({ onContinue }: AuthPageProps) {
+export function AuthPage({ onContinue, onSimulation }: AuthPageProps) {
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [setupStep, setSetupStep] = useState<'credentials' | 'network' | 'complete'>('credentials');
   const [message, setMessage] = useState('');
@@ -73,7 +74,7 @@ export function AuthPage({ onContinue }: AuthPageProps) {
               <p className="auth-subtitle">
                 {creatingAccount
                   ? 'Set up an account to continue to NetSentinel.'
-                  : 'Sign in with your NetSentinel account to continue.'}
+                  : 'Account preview. Open the local dashboard below to capture traffic without signing in.'}
               </p>
 
               <form className="auth-form" onSubmit={handleSubmit}>
@@ -171,8 +172,11 @@ export function AuthPage({ onContinue }: AuthPageProps) {
           )}
 
           <div className="auth-divider"><span>OR</span></div>
-          <button className="auth-skip" type="button" onClick={onContinue}>
-            Skip (remove me before demo)
+          <button className="auth-submit" type="button" onClick={onContinue}>
+            Open local dashboard
+          </button>
+          <button className="auth-skip" type="button" onClick={onSimulation}>
+            Explore offline simulation
           </button>
         </div>
       </section>

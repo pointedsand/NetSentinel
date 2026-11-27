@@ -1,3 +1,5 @@
+import { Monitor } from './monitor.mjs';
+import { once } from 'node:events';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { isIP } from 'node:net';
@@ -21,21 +23,24 @@ function filterArgs(filter = {}) {
   });
 }
 
-export function serve({ executable, mode, source, sources = [source], port = 8080, dns = false,
+export function serve({ executable, mode, source, sources = [source], sourceLabels, monitor = new Monitor(), port = 8080, dns = false,
                         origin = 'http://localhost:5173' }) {
   if (!executable || !source || !['--interface','--replay'].includes(mode)) throw Error('invalid capture source');
   const history = new PacketHistory();
   let activeDns = dns, names, resolverSource;
   function resolver(source) {
     if (resolverSource !== source) { names?.close(); names = null; resolverSource = source; }
-    if (activeDns && !names) names = new Hostnames({onResult(ip,name) {
+    if (activeDns && !names) names = new Hostnames({onResult(ip,name,key) {
+      if (key !== ip) { monitor.applyPtr(source,ip,name,key); return; }
       history.applyPtr(source,ip,name);
       if (client?.readyState === WebSocket.OPEN && client.bufferedAmount < 512*1024)
         client.send(JSON.stringify({type:'ptr',source,ip,name}));
     }});
     return names;
   }
+  monitor.resolveNeighbor = (source,ip,id) => resolver(source)?.get(ip,id+'|'+ip);
   let child, client;
+  let selected = 0;
   const server = new WebSocketServer({ host: '127.0.0.1', port, maxPayload: 4096,
     perMessageDeflate: false, verifyClient: info => !info.origin || info.origin === origin });
   let watchdog;
@@ -50,7 +55,6 @@ export function serve({ executable, mode, source, sources = [source], port = 808
     if (client || child) { socket.close(1013, 'session busy'); return; }
     client = socket;
     let args = filterArgs();
-    let selected = 0;
     let historyMode = false;
     const send = data => {
       if (socket.readyState !== WebSocket.OPEN) return;
@@ -63,9 +67,13 @@ export function serve({ executable, mode, source, sources = [source], port = 808
       try {
         const msg = JSON.parse(raw);
         if (msg.type !== 'control') throw Error('expected control');
+        if (['monitor','device_preference','monitor_rules','ack_event'].includes(msg.command)) { send(monitor.command(msg)); return; }
         if (msg.command === 'active_dns' && typeof msg.enabled === 'boolean') {
           activeDns=msg.enabled;
           if (!activeDns) { names?.close(); names=null; }
+          else if (monitor.context && !monitor.context.replay) {
+            for (const [ip,d] of monitor.bindings) monitor.resolveNeighbor(d.source,ip,d.id);
+          }
           send({type:'dns_setting',enabled:activeDns}); return;
         }
         if (msg.command === 'history' && !child) {
@@ -83,23 +91,30 @@ export function serve({ executable, mode, source, sources = [source], port = 808
           send({...history.message([]),historyPage:true,offset:0,nextOffset:null}); return;
         }
         if (msg.command === 'list_sources') {
-          send({type:'sources', mode, sources, selected,activeDns}); return;
+          send({type:'sources', mode, sources, sourceLabels, selected,activeDns}); return;
         }
         if (msg.command === 'select_source' && !child) {
           if (!Number.isInteger(msg.index) || msg.index < 0 || msg.index >= sources.length)
             throw Error('invalid source');
           selected = msg.index;
-          send({type:'sources', mode, sources, selected}); return;
+          send({type:'sources', mode, sources, sourceLabels, selected}); return;
         }
         if (msg.command === 'stop_capture') { stop(); return; }
         if (msg.command === 'set_filter' && !child) { args = filterArgs(msg.filter); return; }
         if (msg.command !== 'start_capture' || child) throw Error('invalid command or session state');
         history.begin();
+        monitor.begin(sources[selected],mode === '--replay');
         let final;
+        let diagnostic = '';
         const env = {...process.env,NETSENTINEL_HISTORY:"1"};
         if (historyMode) env.NETSENTINEL_DIAGNOSTICS = '1';
-        const proc = spawn(executable, [mode, sources[selected], ...args], { env, stdio: ['pipe','pipe','inherit'], windowsHide: true });
+        const proc = spawn(executable, [mode, sources[selected], ...args], { env, stdio: ['pipe','pipe','pipe'], windowsHide: true });
         child = proc;
+        proc.stderr.setEncoding('utf8');
+        proc.stderr.on('data', text => {
+          diagnostic = (diagnostic + text).slice(-1024);
+          process.stderr.write(text);
+        });
         proc.stdin.on('error', () => {});
         const observed = new ObservedNames();
         createInterface({input: proc.stdout}).on('line', line => {
@@ -110,24 +125,44 @@ export function serve({ executable, mode, source, sources = [source], port = 808
               observed.inspect(p,sources[selected]);
               p.sourceHostname = lookup?.get(p.source);
               p.destinationHostname = lookup?.get(p.destination);
+              if (monitor.context) p.networkScope = monitor.context.scope;
+              monitor.packet(p);
             }
             const cumulative = history.append(batch,sources[selected]);
+            monitor.detector.rate(monitor.context,cumulative,Date.now());
             const outgoing = historyMode ? cumulative : {...batch,packets:batch.packets.filter(p=>p.visible)};
             if (batch.captureState === 'PAUSED') final = outgoing;
             else send(outgoing);
           } catch { stop(); send({type:'error', message:'invalid capture output'}); }
         });
-        proc.on('error', () => send({type:'error', message:'cannot launch capture'}));
+        proc.on('error', error => { diagnostic = 'Cannot launch capture: ' + error.message; });
         proc.on('close', code => {
           clearTimeout(watchdog);
           watchdog = undefined;
           child = undefined;
-          if (final) send(final);
-
-          if (code !== 0) send({type:'error', message:'capture failed'});
+          monitor.stop();
+          if (code === 0 && final && !final.failed) {
+            send(final);
+            return;
+          }
+          const message = diagnostic.trim().split(/\r?\n/).at(-1) || 'Capture worker stopped unexpectedly';
+          history.stats = {...history.stats, captureState:'PAUSED', failed:true, failureMessage:message};
+          send({...(final ?? history.message([])), captureState:'PAUSED', failed:true, failureMessage:message});
+          send({type:'error', message});
         });
       } catch (e) { send({type:'error', message:e.message}); }
     });
   });
-  return { server, close() { activeDns=false; names?.close(); names=null; stop(); client?.terminate(); server.close(); } };
+  return { server, async close() {
+    const stopped = child && once(child,'close').catch(() => {});
+    monitor.stop();
+    activeDns = false;
+    names?.close();
+    names = null;
+    stop();
+    client?.terminate();
+    server.close();
+    await stopped;
+    await monitor.store?.flush();
+  } };
 }

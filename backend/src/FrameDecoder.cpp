@@ -3,22 +3,44 @@
 #include <cstdio>
 #include <sstream>
 
-namespace {
-uint16_t word(const uint8_t* p) { return uint16_t(p[0]) * 256 + p[1]; }
-
-std::string mac(const uint8_t* p) {
+std::string ethernet_mac(const uint8_t* p) {
     char out[18];
     std::snprintf(out,sizeof out,"%02x:%02x:%02x:%02x:%02x:%02x",p[0],p[1],p[2],p[3],p[4],p[5]);
     return out;
 }
 
-std::string ipv4(const uint8_t* p) {
+std::string ipv4_text(const uint8_t* p) {
     char out[16];
     std::snprintf(out,sizeof out,"%u.%u.%u.%u",p[0],p[1],p[2],p[3]);
     return out;
 }
 
-void transport(const uint8_t* p, size_t n, uint8_t proto, bool fragment, bool later, ParsedPacket& out) {
+namespace {
+uint16_t word(const uint8_t* p) { return uint16_t(p[0]) * 256 + p[1]; }
+
+void inspect_neighbor(const uint8_t* p, size_t n, ParsedPacket& out) {
+    auto& d = out.details;
+    if (n < 24 || d.hop_limit != 255 || p[1] != 0 || (p[0] != 135 && p[0] != 136)) return;
+    if (p[8] == 0xff || out.source_ip == "::" || out.source_ip.rfind("ff",0) == 0) return;
+    if (p[0] == 136 && (p[4] & 0x40) && out.destination_ip.rfind("ff",0) == 0) return;
+    std::string address;
+    for (size_t i = 24; i < n;) {
+        if (n-i < 2 || !p[i+1]) return;
+        const size_t length = size_t(p[i+1])*8;
+        if (length > n-i) return;
+        if (p[i] == (p[0] == 135 ? 1 : 2)) {
+            if (length != 8 || !address.empty()) return;
+            address = ethernet_mac(p+i+2);
+        }
+        i += length;
+    }
+    if (!address.empty() && address == d.source_mac) {
+        d.neighbor_mac = address;
+        d.neighbor_ip = p[0] == 135 ? out.source_ip : ipv6_text(p+8);
+    }
+}
+
+void transport(const uint8_t* p, size_t n, uint8_t proto, bool fragment, bool later, ParsedPacket& out, bool allow_neighbor = true) {
     auto& d = out.details;
     d.next_header = proto;
     d.status = "decoded";
@@ -42,6 +64,7 @@ void transport(const uint8_t* p, size_t n, uint8_t proto, bool fragment, bool la
         if (proto != 2) {
             out.protocol = Protocol::ICMP;
             if (!later) d.icmp_type = p[0];
+            if (proto == 58 && allow_neighbor && !fragment) inspect_neighbor(p,n,out);
         }
     } else if (proto == 50) { d.transport = "ESP"; d.status = "encrypted"; }
     else if (d.ip_version != 6 || proto != 59) d.status = "unsupported";
@@ -57,20 +80,21 @@ void decode_ipv6(const uint8_t* ip, size_t n, ParsedPacket& out) {
     size_t end = 40u + word(ip+4), pos = 40;
     uint8_t next = ip[6];
     if (end > n) { d.status = "short"; return; }
-    bool fragment = false, later = false;
+    bool fragment = false, later = false, saw_fragment = false;
     for (int depth=0; next==0 || next==43 || next==60 || next==44 || next==51; ++depth) {
         if (depth == 12) return;
         if (end-pos < 2) { d.status = "malformed"; return; }
         size_t length = next == 44 ? 8 : next == 51 ? (ip[pos+1]+2u)*4 : (ip[pos+1]+1u)*8;
         if (length > end-pos) { d.status = "malformed"; return; }
         if (next == 44) {
+            saw_fragment = true;
             const auto bits = word(ip+pos+2);
             later = (bits & 0xfff8) != 0; fragment = later || (bits & 1);
         }
         next = ip[pos]; pos += length;
         if (later) break;
     }
-    transport(ip+pos,end-pos,next,fragment,later,out);
+    transport(ip+pos,end-pos,next,fragment,later,out,!saw_fragment);
 }
 }
 
@@ -98,7 +122,7 @@ ParsedPacket inspect_frame(const uint8_t* bytes, size_t n, uint32_t original) {
     const auto short_status = n < original ? "truncated" : "malformed";
     if (n > original) { d.status="malformed"; return out; }
     if (!bytes || n < 14) { d.status = short_status; return out; }
-    d.destination_mac = mac(bytes); d.source_mac = mac(bytes+6);
+    d.destination_mac = ethernet_mac(bytes); d.source_mac = ethernet_mac(bytes+6);
     size_t pos = 14;
     uint16_t type = word(bytes+12);
     while (type == 0x8100 || type == 0x88a8) {
@@ -128,7 +152,10 @@ ParsedPacket inspect_frame(const uint8_t* bytes, size_t n, uint32_t original) {
         else {
             d.arp_operation = word(p+6);
             if (word(p)==1 && word(p+2)==0x0800 && p[4]==6 && p[5]==4) {
-                out.source_ip = ipv4(p+14); out.destination_ip = ipv4(p+24); d.status = "decoded";
+                out.source_ip = ipv4_text(p+14); out.destination_ip = ipv4_text(p+24); d.status = "decoded";
+                if ((*d.arp_operation == 1 || *d.arp_operation == 2) && ethernet_mac(p+8) == d.source_mac) {
+                    d.neighbor_mac = d.source_mac; d.neighbor_ip = out.source_ip;
+                }
             }
         }
     } else if (type == 0x88cc) {

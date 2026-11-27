@@ -7,6 +7,10 @@ NetSentinel provides an interface for monitoring network activity, discovering c
 
 The application uses a **C++ backend** for network processing and a **React + Electron frontend** for visualization and user interaction.
 
+## Run the integrated application
+
+Use Node 24 and the capture build to start both the local bridge and React frontend with `node dev.mjs --live` or `node dev.mjs --replay`. The [setup and demonstration guide](backend/service/README.md) includes Windows prerequisites, commands and a three-packet walkthrough.
+
 ### 👥 Team Members
 
 **Backend Development**

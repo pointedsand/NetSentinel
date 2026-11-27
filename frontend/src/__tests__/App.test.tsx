@@ -6,7 +6,7 @@ import { SIMULATED_DEVICES } from '../simulationData';
 
 function renderAppInDemoMode() {
   const result = render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: 'Skip (remove me before demo)' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Explore offline simulation' }));
   return result;
 }
 
@@ -16,7 +16,7 @@ describe('Account access screen', () => {
 
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy();
     expect(screen.getByLabelText('Email address')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Skip (remove me before demo)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Explore offline simulation' })).toBeTruthy();
     expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
@@ -31,7 +31,7 @@ describe('Account access screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(screen.getByRole('status').textContent).toMatch(/haven’t been saved/);
-    fireEvent.click(screen.getByRole('button', { name: 'Skip (remove me before demo)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Explore offline simulation' }));
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
   });
 

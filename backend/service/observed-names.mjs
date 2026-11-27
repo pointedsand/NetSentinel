@@ -19,7 +19,7 @@ export class ObservedNames {
       if (entry && now >= entry.start && now < entry.end) p.flowSni = entry.name;
       if (p.tcpFlags & 5) this.entries.delete(flow);
     }
-    if (p.dnsQuestion && p.dnsAnswers?.length && p.destination) {
+    if (p.application !== 'mDNS response' && p.dnsQuestion && p.dnsAnswers?.length && p.destination) {
       let name = p.dnsQuestion.toLowerCase(), ttl = Infinity;
       for (let depth=0; depth<8; depth++) {
         for (const a of p.dnsAnswers) {
