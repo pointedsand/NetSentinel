@@ -1,21 +1,32 @@
 import type { Capture } from '../hooks/useCapture';
 import { TrafficSummary } from './DashboardPage';
-import { useState } from 'react';
+import { eventLabel } from '../alertEvidence';
+import { useState, useRef, useEffect } from 'react';
 import type { Packet } from '../types';
 import type { AlertItem } from './alertTypes';
 
 interface TrafficSample {
   time: number;
   packets: number;
+  kbps: number;
 }
 
 type TimeRange = '2m' | '1h' | '1d';
 
 /** Simulated overview route; the separate backend telemetry view is DashboardPage. */
-export function DashboardOverview({ packets, alerts, capture, inspect }: { packets: Packet[]; alerts: AlertItem[]; capture?: Capture; inspect?: (id: number) => void }) {
+export function DashboardOverview({ packets, alerts, capture, inspect, navigate }: { navigate:(page:'alerts'|'packets')=>void; packets: Packet[]; alerts: AlertItem[]; capture?: Capture; inspect?: (id: number) => void }) {
   const [selectedTime, setSelectedTime] = useState<number>(() => packets[0]?.timestamp ?? 0);
   const [timeRange, setTimeRange] = useState<TimeRange>('2m');
 
+  const [metric,setMetric] = useState('packets');
+  const plot = useRef<HTMLDivElement>(null);
+  const [width,setWidth] = useState(850);
+  useEffect(()=>{
+    if (!plot.current || typeof ResizeObserver==='undefined') return;
+    const observer=new ResizeObserver(([entry])=>setWidth(Math.max(300,entry.contentRect.width)));
+    observer.observe(plot.current);
+    return ()=>observer.disconnect();
+  },[]);
   const now = packets.reduce((latest, packet) => Math.max(latest, packet.timestamp), 0);
 
   // Configure sample count and bucket intervals based on selected range
@@ -35,9 +46,10 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
   const samples: TrafficSample[] = [];
   const firstBucketStart = latestBucketEnd - sampleCount * intervalMs;
   const counts = new Array<number>(sampleCount).fill(0);
+  const bytes = new Array<number>(sampleCount).fill(0);
   for (const packet of packets) {
     const index = Math.floor((packet.timestamp - firstBucketStart) / intervalMs);
-    if (index >= 0 && index < sampleCount) counts[index]++;
+    if (index >= 0 && index < sampleCount) { counts[index]++; bytes[index]+=packet.sizeBytes; }
   }
 
   for (let i = sampleCount - 1; i >= 0; i--) {
@@ -48,6 +60,7 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
 
     samples.push({
       time: bucketEnd,
+      kbps: bytes[sampleCount-1-i]*8/intervalMs,
       packets: count > 0 || capture ? count : baseline
     });
   }
@@ -61,57 +74,38 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
   const totalBits = selectedSample.packets * 1150 * 8;
   const synchronizedBandwidth = Math.max(12.50, (totalBits / intervalSeconds) / 1_000_000).toFixed(2);
 
-  const chart = { left: 58, top: 20, width: 700, height: 184 };
-  const maxPackets = Math.ceil(Math.max(...samples.map((s) => s.packets), 120) / 25) * 25;
+  const chart = { left: 70, top: 12, width: width-92, height: 110 };
+  const valueOf = (s:TrafficSample) => metric==='bandwidth'?s.kbps:s.packets/intervalSeconds;
+  const peak = Math.max(...samples.map(valueOf));
+  const maxPackets = peak > 0 ? 2 ** Math.ceil(Math.log2(peak)) : 1;
+  const formatRate = (rate: number) => rate===0?'0':Number(rate.toPrecision(3)).toString();
 
   const points = samples.map((sample, index) => ({
     x: chart.left + (index / (samples.length - 1)) * chart.width,
-    y: chart.top + chart.height - (sample.packets / maxPackets) * chart.height,
+    y: chart.top + chart.height - (valueOf(sample) / maxPackets) * chart.height,
   }));
 
   const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
   const areaPath = `${linePath} L ${chart.left + chart.width} ${chart.top + chart.height} L ${chart.left} ${chart.top + chart.height} Z`;
   const tickIndexes = [0, Math.floor((samples.length - 1) / 2), samples.length - 1];
 
+  const recentAlerts = capture ? (capture.monitor?.events ?? []).slice(0,5).map(e=>({id:e.id,label:eventLabel(e),subject:e.deviceName||e.ip||e.origin,time:e.time})) :
+    alerts.filter(e=>!e.acknowledged).sort((a,b)=>b.timestamp-a.timestamp).slice(0,5).map(e=>({id:e.id,label:e.alertType,subject:e.deviceName,time:e.timestamp}));
   return (
-    <div className="dashboard">
-      <div className="dashboard-heading dashboard-heading-centered">
-        <div className="dashboard-title">
-          <span className="eyebrow">NETWORK OVERVIEW</span>
-          <h1>Dashboard</h1>
-          <p>At-a-glance traffic, device, and security activity.</p>
-        </div>
-        <span className="demo-badge"><span aria-hidden="true" /> {capture ? (!capture.connected ? 'Disconnected' : capture.mode === '--replay' ? 'Capture file replay' : 'Live interface') : 'Home Wi-Fi Simulation Active'}</span>
-      </div>
-
-      {capture ? <TrafficSummary captureMode={capture.mode} telemetry={{ ...capture.stats, packetCount: capture.stats.packetCount + capture.stats.rejected }} /> : <section className="metric-grid" aria-label="Traffic summary">
-        <article className="dashboard-card metric-card">
-          <div className="card-kicker">PACKETS CAPTURED</div>
-          <div className="metric-value" aria-live="polite">{(12584 + packets.length).toLocaleString()}</div>
-          <p className="metric-note">Live home network packet count (~80 pkts / 10s)</p>
-        </article>
-
-        <article className="dashboard-card metric-card">
-          <div className="card-kicker">BANDWIDTH</div>
-          <div className="metric-value" aria-live="polite">
-            {synchronizedBandwidth} <span>Mbps</span>
-          </div>
-          <p className="metric-note">Synchronized home Wi-Fi throughput (~15 Mbps)</p>
-        </article>
-      </section>}
-
-      {capture && !packets.length ? <section className="dashboard-card recent-capture"><h2>Packet rate</h2><p>Waiting for captured frames.</p></section> : <section className="dashboard-card traffic-card" aria-labelledby="traffic-title">
+    <div className="dashboard desktop-overview">
+      <section className="dashboard-card traffic-card" aria-labelledby="traffic-title">
         <div className="section-heading">
           <div>
-            <div className="card-kicker">TRAFFIC ACTIVITY</div>
-            <h2 id="traffic-title">Packet rate</h2>
-            <p>{capture ? 'Retained packets per interval' : 'Packets per interval · active home Wi-Fi stream'}</p>
+
+            <h2 id="traffic-title">Traffic activity</h2>
+            <p>{capture ? 'Retained observations · '+(metric==='bandwidth'?'kb/s':'packets/s') : 'Simulated packets/s'}</p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {capture && <select className="modal-select" aria-label="Chart metric" value={metric} onChange={e=>setMetric(e.target.value)}><option value="packets">Packet rate</option><option value="bandwidth">Bandwidth</option></select>}
             <span style={{ fontSize: '11px', color: '#8998b2', fontWeight: 600 }}>Range:</span>
             <select
-              value={timeRange}
+              aria-label="Time range" value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as TimeRange)}
               className="modal-select"
               style={{ width: '110px', padding: '4px 8px', fontSize: '11px' }}
@@ -123,16 +117,17 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
           </div>
         </div>
 
-        <div className="chart-container">
+        <div className="chart-container" ref={plot}>
+          {capture && !packets.length && <p className="chart-empty">Waiting for captured frames</p>}
           <svg
             className="traffic-chart"
-            viewBox="0 0 800 250"
+            viewBox={'0 0 '+width+' 158'}
             role="group"
-            aria-label="Interactive packet rate chart. Select a point to inspect its data."
+            aria-label={'Interactive '+(metric==='bandwidth'?'bandwidth':'packet rate')+' chart'}
           >
             {[0, 0.5, 1].map((fraction) => {
               const y = chart.top + chart.height * fraction;
-              const value = Math.round(maxPackets * (1 - fraction));
+              const value = formatRate(maxPackets * (1 - fraction));
               return (
                 <g key={fraction}>
                   <line className="chart-gridline" x1={chart.left} x2={chart.left + chart.width} y1={y} y2={y} />
@@ -152,7 +147,10 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
                     cx={point.x}
                     cy={point.y}
                     r="12"
-                    tabIndex={0}
+                    tabIndex={packets.length?0:-1}
+                    aria-pressed={isSelected}
+                    aria-label={new Date(sample.time).toLocaleTimeString()+' · '+formatRate(valueOf(sample))+(metric==='bandwidth'?' kb/s':' packets/s')}
+                    onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelectedTime(sample.time);}}}
                     role="button"
                     onClick={() => setSelectedTime(sample.time)}
                   />
@@ -179,7 +177,7 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
                   y={chart.top + chart.height + 28}
                   textAnchor={index === 0 ? 'start' : index === samples.length - 1 ? 'end' : 'middle'}
                 >
-                  {timeString}
+                  {now?timeString:'—'}
                 </text>
               );
             })}
@@ -189,7 +187,7 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
         <div className="chart-detail" aria-live="polite">
           <div>
             <span className="detail-label">SELECTED SAMPLE</span>
-            <strong>{new Date(selectedSample.time).toLocaleTimeString()}</strong>
+            <strong>{now?new Date(selectedSample.time).toLocaleTimeString():'—'}</strong>
           </div>
           <div>
             <span className="detail-label">PACKETS / INTERVAL</span>
@@ -197,77 +195,41 @@ export function DashboardOverview({ packets, alerts, capture, inspect }: { packe
           </div>
           <div>
             <span className="detail-label">AVERAGE RATE</span>
-            <strong>{(selectedSample.packets / intervalSeconds).toFixed(1)} <span>packets/sec</span></strong>
+            <strong>{formatRate(valueOf(selectedSample))} <span>{metric==='bandwidth'?'kb/s':'packets/s'}</span></strong>
           </div>
-          <span className="chart-hint">Select a chart point to inspect its data</span>
+
         </div>
-      </section>}
+      </section>
 
-      {capture ? <section className="dashboard-card recent-capture">
-        <h2>Recent packets</h2>
-        <label>Search packets <input type="search" className="filter-input" value={capture.query}
-          onChange={event => capture.setQuery(event.target.value)} placeholder="Name, protocol, IP or port" /></label>
-        <p>{capture.visible.length} matching · {capture.stats.retained} retained · {capture.stats.rejected} rejected during decoding</p>
-        {capture.visible.length > 0 && <div className="packet-table-container"><table className="packet-table">
-          <thead><tr><th>Packet</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Name</th></tr></thead>
-          <tbody>{capture.visible.slice(0, 5).map(packet => <tr key={packet.id}>
-            <td><button className="tool-btn" onClick={() => inspect?.(packet.id)}>{packet.id}</button></td>
-            <td>{packet.source}</td><td>{packet.destination}</td><td>{packet.protocol}</td><td>{packet.name}</td>
-          </tr>)}</tbody>
-        </table></div>}
-        <button className="tool-btn" disabled={!capture.connected || capture.running || capture.pending || !capture.stats.retained && !capture.stats.packetCount && !capture.stats.rejected}
-          onClick={() => capture.command('clear_packets')}>Clear Capture Log</button>
-      </section> : <section className="overview-grid" aria-label="Device and alert placeholders">
-        <article className="dashboard-card overview-card">
-          <div className="section-heading">
-            <div>
-              <div className="card-kicker">DEVICE ACTIVITY</div>
-              <h2>Top data users</h2>
-            </div>
-            <span className="placeholder-tag">PLACEHOLDER</span>
-          </div>
-          <p className="placeholder-note">Show the 3 devices using the most data here.</p>
-          <ol className="placeholder-list">
-            {[
-              { name: 'MacBook Pro (Spotify Streaming)', usage: '42.8 MB' },
-              { name: 'iPhone 15 (Web Surfing / Social)', usage: '18.2 MB' },
-              { name: 'Smart TV (Buffer Stream)', usage: '94.5 MB' }
-            ].map((dev, number) => (
-              <li key={number}>
-                <span className="list-index">{String(number + 1).padStart(2, '0')}</span>
-                <span><strong>{dev.name}</strong><small>Active home Wi-Fi client</small></span>
-                <span className="waiting-value">{dev.usage}</span>
-              </li>
-            ))}
-          </ol>
+      {capture ? <TrafficSummary captureMode={capture.mode} telemetry={{ ...capture.stats, packetCount: capture.stats.packetCount + capture.stats.rejected }} /> : <section className="metric-grid" aria-label="Traffic summary">
+        <article className="dashboard-card metric-card">
+          <div className="card-kicker">PACKETS CAPTURED</div>
+          <div className="metric-value" aria-live="polite">{(12584 + packets.length).toLocaleString()}</div>
+          <p className="metric-note">Live home network packet count (~80 pkts / 10s)</p>
         </article>
 
-        <article className="dashboard-card overview-card">
-          <div className="section-heading">
-            <div>
-              <div className="card-kicker">SECURITY</div>
-              <h2>Critical alerts</h2>
-            </div>
-            <span className="placeholder-tag">LIVE</span>
+        <article className="dashboard-card metric-card">
+          <div className="card-kicker">BANDWIDTH</div>
+          <div className="metric-value" aria-live="polite">
+            {synchronizedBandwidth} <span>Mbps</span>
           </div>
-          <p className="placeholder-note">Top unacknowledged critical and high-severity alerts.</p>
-          <ol className="placeholder-list alert-list">
-            {alerts
-              .filter((alert) => !alert.acknowledged && (alert.severity === 'Critical' || alert.severity === 'High'))
-              .slice(0, 3)
-              .map((alert) => (
-                <li key={alert.id}>
-                  <span className="alert-indicator" aria-hidden="true" />
-                  <span><strong>{alert.alertType}</strong><small>{alert.ipAddress} · {alert.deviceName}</small></span>
-                  <span className="severity-label">{alert.severity.toUpperCase()}</span>
-                </li>
-              ))}
-            {alerts.filter((alert) => !alert.acknowledged && (alert.severity === 'Critical' || alert.severity === 'High')).length === 0 && (
-              <li><span><strong>No active critical alerts</strong><small>All high-priority warnings are acknowledged.</small></span></li>
-            )}
-          </ol>
+          <p className="metric-note">Synchronized home Wi-Fi throughput (~15 Mbps)</p>
         </article>
+        <article className="dashboard-card metric-card"><div className="card-kicker">ACTIVE CONNECTIONS</div><div className="metric-value">—</div><p className="metric-note">Unavailable in simulation</p></article>
       </section>}
+
+      <section className="overview-previews">
+        <article className="dashboard-card"><header><h2>Recent packets</h2><button onClick={()=>navigate('packets')}>View all packets ↗</button></header>
+          {packets.length ? <ol className="preview-list">{packets.slice(0,6).map(p=><li key={p.id}>
+            <button className="preview-packet" aria-label={String(p.id)} onClick={()=>inspect ? inspect(p.id) : navigate('packets')}>
+              <span className="protocol-tag">{p.protocol}</span><span title={p.source+' → '+p.destination}>{p.source} → {p.destination}</span><time>{p.time}</time>
+            </button></li>)}</ol> : <p className="preview-empty">Captured packets will appear here.</p>}
+        </article>
+        <article className="dashboard-card"><header><h2>Recent security alerts</h2><button onClick={()=>navigate('alerts')}>View all alerts ↗</button></header>
+          {recentAlerts.length ? <ol className="preview-list">{recentAlerts.map(e=><li key={e.id} className="preview-alert"><i aria-hidden="true"/><span><strong>{e.label}</strong><small>{e.subject}</small></span><time>{new Date(e.time).toLocaleTimeString()}</time></li>)}</ol> :
+            <p className="preview-empty">{capture && !capture.connected?'Monitoring disconnected.':capture && !capture.monitor?'Waiting for monitoring data.':'No recent security alerts.'}</p>}
+        </article>
+      </section>
     </div>
   );
 }

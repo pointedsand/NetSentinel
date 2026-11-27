@@ -406,7 +406,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
                   {securityEvents.map((event) => (
                     <tr key={event.id}>
                       <td className="time-cell">{new Date(event.timestamp).toLocaleString()}</td>
-                      <td><span className={`security-severity severity-${event.severity.toLowerCase()}`}>{event.severity}</span></td>
+                      <td><span className="log-severity">{event.severity}</span></td>
                       <td>{event.alertType}</td>
                       <td>{event.message}</td>
                       <td>{event.source}</td>

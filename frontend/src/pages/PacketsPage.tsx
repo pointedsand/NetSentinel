@@ -34,8 +34,10 @@ export function PacketsPage({
   onClear,
   isCapturing,
   setIsCapturing,
-  onNavigateDashboard, live = false, disabled = false, matching, search, onSearch, initialDetail = null
+  onNavigateDashboard, live = false, disabled = false, matching, search, onSearch, initialDetail = null, rail, inShell = false
 }: {
+  inShell?: boolean;
+  rail?: React.ReactNode;
   matching?: Packet[];
   search?: string;
   onSearch?: (query: string) => void;
@@ -118,26 +120,19 @@ export function PacketsPage({
   };
 
   return (
-    <div className="packet-capture-view">
-      <div className="capture-header-bar">
+    <div className="packet-capture-view desktop-packets">
+      {!inShell && <div className="capture-header-bar">
         <button onClick={onNavigateDashboard} className="back-link">&lt; Dashboard</button>
         <h2>Live Packet Capture</h2>
         <span className="time-display">{new Date().toLocaleTimeString(undefined, { timeZoneName: 'short' })}</span>
-      </div>
+      </div>}
 
-      <div className="capture-toolbar">
+      <section className="packet-stream"><div className="capture-toolbar">
         <div className="toolbar-left">
-          <button
-            disabled={disabled}
-            onClick={() => setIsCapturing(!isCapturing)}
-            className={`control-btn ${isCapturing ? 'btn-stop' : 'btn-start'}`}
-          >
-            {isCapturing ? 'Stop' : 'Start'}
-          </button>
           <div className="filter-group">
-            <span>Filter:</span>
+            <label htmlFor="packet-search">Search packets</label>
             <input
-              type="text"
+              id="packet-search" type="search"
               placeholder={live ? "Filter by name, protocol, IP or port..." : "Filter by name, protocol, or IP..."}
               value={search ?? filterText}
               onChange={(e) => {
@@ -154,22 +149,6 @@ export function PacketsPage({
 
         <div className="toolbar-right">
           <span className="packet-counter">{live ? 'Displayed' : 'Captured'}: <strong>{live ? filteredPackets.length : packets.length}</strong></span>
-          <span className={`status-pill ${isCapturing ? 'status-started' : 'status-paused'}`}>
-            {isCapturing ? 'Started' : 'Paused'}
-          </span>
-          <button onClick={() => setShowExportModal(true)} className="tool-btn">Export</button>
-          <button
-            disabled={live && (isCapturing || disabled)}
-            onClick={() => { showDetails(null); setSelectedPacketIds([]); onClear(); }}
-            className="tool-btn"
-            style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.16)',
-              color: '#f87171',
-              borderColor: 'rgba(239, 68, 68, 0.4)',
-            }}
-          >
-            {live ? 'Clear Capture Log' : 'Clear Logs'}
-          </button>
         </div>
       </div>
 
@@ -186,7 +165,7 @@ export function PacketsPage({
             <tr>
               <th style={{ width: '40px' }}>
                 <input
-                  type="checkbox"
+                  type="checkbox" aria-label="Select all displayed packets"
                   onChange={(e) => {
                     if (e.target.checked) {
                       setSelectedPacketIds(filteredPackets.map(p => p.id));
@@ -217,7 +196,7 @@ export function PacketsPage({
                   <tr key={pkt.id} onClick={live ? () => showDetails(pkt.id) : undefined}>
                     <td>
                       <input
-                        type="checkbox"
+                        type="checkbox" aria-label={'Select packet '+pkt.id}
                         onClick={event => event.stopPropagation()}
                         checked={selectedPacketIds.includes(pkt.id)}
                         onChange={(e) => {
@@ -230,11 +209,11 @@ export function PacketsPage({
                       />
                     </td>
                     <td className="row-num">{live ? <button onClick={() => showDetails(pkt.id)}>{pkt.id}</button> : (visiblePacketStart + index + 1) + '.'}</td>
-                    <td>{pkt.source}</td>
-                    <td>{pkt.destination}</td>
+                    <td title={pkt.source}>{pkt.source}</td>
+                    <td title={pkt.destination}>{pkt.destination}</td>
                     <td className="protocol-cell">{pkt.protocol}</td>
                     <td>{pkt.size}</td>
-                    <td className="name-cell">{pkt.name}</td>
+                    <td className="name-cell" title={pkt.name}>{pkt.name}</td>
                     <td className="time-cell">{pkt.time}</td>
                   </tr>
                 ))}
@@ -253,6 +232,30 @@ export function PacketsPage({
         </table>
       </div>
 
+      </section>
+      <aside className="packet-rail" aria-label="Capture session controls"><section className="dashboard-card rail-card">
+        {rail || <h2>Capture session</h2>}
+        {!inShell && <button
+            disabled={disabled}
+            onClick={() => setIsCapturing(!isCapturing)}
+            className={`control-btn ${isCapturing ? 'btn-stop' : 'btn-start'}`}
+          >
+            {isCapturing ? 'Stop' : 'Start'}
+          </button>}
+        <div className="rail-actions"><button onClick={() => setShowExportModal(true)} className="tool-btn">Export</button>
+          <button
+            disabled={live && (isCapturing || disabled)}
+            onClick={() => { showDetails(null); setSelectedPacketIds([]); onClear(); }}
+            className="tool-btn"
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.16)',
+              color: '#f87171',
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+            }}
+          >
+            {live ? 'Clear Capture Log' : 'Clear Logs'}
+          </button></div>
+      </section>
       {live && detail?.details && <section className="dashboard-card packet-details" aria-label="Packet details">
         <button onClick={() => showDetails(null)}>Close details</button>
         <h3>Packet {detail.id} · {detail.protocol}</h3>
@@ -260,6 +263,7 @@ export function PacketsPage({
           (!Array.isArray(v) || v.length > 0)).filter(([key]) => key in detailLabels).map(([key,value]) =>
           <div key={key}><dt>{detailLabels[key]}</dt><dd>{detailText(key,value)}</dd></div>)}</dl>
       </section>}
+      </aside>
       {showExportModal && (
         <div className="modal-overlay">
           <div className="modal-box">

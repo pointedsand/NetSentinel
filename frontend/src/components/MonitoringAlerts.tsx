@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { alertSummary, isAlertPacket, severityLabel } from '../alertEvidence';
+import { eventLabel, alertSummary, isAlertPacket, severityLabel } from '../alertEvidence';
 import { interfaceName } from '../deviceIdentity';
 import type { Capture } from '../hooks/useCapture';
 import type { Packet, SecurityEvent } from '../types';
@@ -20,8 +20,8 @@ function AlertCard({event,adapter,packets,connected,acknowledge,onPackets}: Card
     <div className="security-entry-body">
       <button type="button" className="security-open" aria-expanded={expanded} aria-controls={'details-'+event.id}
         onClick={()=>setExpanded(!expanded)}>
-        <span className="security-event-heading"><span className="security-badge">{severity}</span>
-          <strong>{event.type}</strong></span>
+        <span className="security-event-heading"><strong>{eventLabel(event)}</strong>
+          {!event.acknowledged && event.type==='Device arrival' && event.evidence.includes('Trust: untrusted.') && <small className="needs-review">Needs review</small>}</span>
         <span className="security-meta"><time dateTime={time.toISOString()}>{time.toLocaleString()}</time>
           <span>{event.origin}</span><span>{event.deviceName || event.ip || event.mac || adapter}</span></span>
         <span className="security-description">{alertSummary(event)}</span>
@@ -65,7 +65,7 @@ export function MonitoringAlerts({capture,onPackets}: {capture:Capture; onPacket
     outdated ? 'Monitoring unavailable. Restart the local backend to load the updated alert history.' :
     !view ? 'Waiting for monitoring data…' : unavailable ? 'Monitoring unavailable on this adapter.' :
     view.eventTotal ? 'No alerts match the current filters.' : 'No security events recorded.';
-  return <main className="dashboard security-workspace">
+  return <section className="dashboard security-workspace">
     <header className="security-heading"><div><h1>Security Alerts</h1>
       <p role="status">{capture.connected ? view?.status || (outdated ? 'Monitoring unavailable' : 'Loading monitoring state…') : 'Security monitoring disconnected.'}</p></div>
       {view && <dl className="security-counts"><div><dt>Retained</dt><dd>{view.eventTotal}</dd></div>
@@ -96,5 +96,5 @@ export function MonitoringAlerts({capture,onPackets}: {capture:Capture; onPacket
           <span>{view.eventOffset+1}–{view.eventOffset+view.events.length}</span>
           <button className="tool-btn" disabled={view.eventOffset+24>=view.eventMatches} onClick={()=>capture.setEventOffset(view.eventOffset+24)}>Next</button></nav>}</footer>}
     </section>
-  </main>;
+  </section>;
 }

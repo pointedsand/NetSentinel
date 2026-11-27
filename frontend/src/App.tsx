@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import netSentinelMark from './assets/netsentinel-mark.png';
+import { useState } from 'react';
+import { AppShell } from './components/layout/AppShell';
+import type { PageId } from './components/layout/Sidebar';
 import './App.css';
 import './styles/auth.css';
 import { MonitoringAlerts } from './components/MonitoringAlerts';
@@ -13,52 +14,9 @@ import { AuthPage } from './pages/AuthPage';
 import { createSeedAlerts, DEFAULT_ALERT_RULES } from './pages/alertTypes';
 import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
+import { sourceName } from './deviceIdentity';
 import { useCapture } from './hooks/useCapture';
-import { CaptureControls } from './components/CaptureControls';
-
-type PageId = 'dashboard' | 'packets' | 'devices' | 'alerts' | 'logs' | 'settings';
-
-const pages: { id: PageId; label: string }[] = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'packets', label: 'Packets' },
-  { id: 'devices', label: 'Devices' },
-  { id: 'alerts', label: 'Alerts' },
-  { id: 'logs', label: 'Logs' },
-  { id: 'settings', label: 'Settings' },
-];
-
-function AppShell({ children, activePage, setActivePage }: { children: ReactNode; activePage: PageId; setActivePage: (page: PageId) => void }) {
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <button
-            className="brand"
-            type="button"
-            aria-label="NetSentinel home"
-            onClick={() => setActivePage('dashboard')}
-          >
-            <img src={netSentinelMark} alt="" />
-            <span>NetSentinel</span>
-          </button>
-          <nav className="main-navigation" aria-label="Main navigation">
-            {pages.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                aria-current={activePage === id ? 'page' : undefined}
-                onClick={() => setActivePage(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-        </div>
-      </header>
-      <main className="page-content">{children}</main>
-    </div>
-  );
-}
+import { CaptureControls, CaptureSource, NameResolution } from './components/CaptureControls';
 
 export function App() {
   const [mode, setMode] = useState<"welcome"|"capture"|"simulation">(() => sessionStorage.getItem("netsentinel.workspace") === "capture" ? "capture" : "welcome");
@@ -75,15 +33,14 @@ function DemoApp() {
   const { packets, setPackets, isCapturing, setIsCapturing } = usePacketSimulation();
 
   return (
-    <AppShell activePage={activePage} setActivePage={setActivePage}>
-      <p className="demo-badge">Offline simulation</p>
+    <AppShell activePage={activePage} setActivePage={setActivePage} running={isCapturing} toggle={()=>setIsCapturing(!isCapturing)} status={isCapturing?'Simulating':'Paused'}>
       {(() => {
         switch (activePage) {
           case 'dashboard':
-            return <DashboardOverview packets={packets} alerts={alerts} />;
+            return <DashboardOverview navigate={setActivePage} packets={packets} alerts={alerts} />;
           case 'packets':
             return (
-              <PacketsPage
+              <PacketsPage inShell
                 packets={packets}
                 onClear={() => setPackets([])}
                 isCapturing={isCapturing}
@@ -114,7 +71,7 @@ function DemoApp() {
           case 'settings':
             return <SettingsPage onNavigateDashboard={() => setActivePage('dashboard')} />;
           default:
-            return <DashboardOverview packets={packets} alerts={alerts} />;
+            return <DashboardOverview navigate={setActivePage} packets={packets} alerts={alerts} />;
         }
       })()}
     </AppShell>
@@ -124,18 +81,22 @@ function DemoApp() {
 function CaptureApp() {
   const [importedLog,setImportedLog] = useState<import('./pages/importPackets').ImportedLog | null>(null);
   const [page, navigate] = useState<PageId>('dashboard');
-  const capture = useCapture(page === 'devices' || page === 'alerts' || page === 'logs', page === 'alerts');
+  const capture = useCapture(page === 'dashboard' || page === 'devices' || page === 'alerts' || page === 'logs', page === 'alerts');
   const dashboard = () => navigate('dashboard');
   const [detailId, selectDetail] = useState<number | null>(null);
-  const controls = <CaptureControls state={capture} startButton={page !== 'packets'} />;
-  return <AppShell activePage={page} setActivePage={next => { selectDetail(null); navigate(next); }}>
-    {(page === 'dashboard' || page === 'packets') && controls}
-    {page === 'dashboard' && <DashboardOverview packets={capture.packets} alerts={[]} capture={capture} inspect={id => { selectDetail(id); navigate('packets'); }} />}
+  return <AppShell activePage={page} setActivePage={next => { selectDetail(null); navigate(next); }}
+    connected={capture.connected} pending={capture.pending} running={capture.running} toggle={()=>capture.capture(!capture.running)}
+    status={capture.error ? 'Capture error' : !capture.connected ? 'Reconnecting' : (capture.mode==='--replay'?'Replay':'Live')+' · '+(capture.running?'Running':'Paused')}
+    source={page==='dashboard' ? <CaptureSource state={capture}/> : <span className="session-source" title={capture.sourceIds[capture.selected]}>{sourceName(capture,capture.selected)}</span>}
+    notice={<>{capture.error && <p role="alert" className="session-notice">{capture.error}</p>}
+      {capture.stats.outputDrops>0 && <p className="session-notice">{capture.stats.outputDrops.toLocaleString()} output packets dropped</p>}</>}>
+    {page === 'dashboard' && <DashboardOverview navigate={navigate} packets={capture.packets} alerts={[]} capture={capture} inspect={id => { selectDetail(id); navigate('packets'); }} />}
     {page === 'packets' && capture.packetEvent && <div className="device-packet-filter">{capture.packetEvent.type} · related observations
       <button className="tool-btn" onClick={()=>capture.setPacketEvent(null)}>Clear alert filter</button></div>}
     {page === 'packets' && capture.packetDevice && <div className="device-packet-filter">Device · {capture.packetDevice.mac} <button className="tool-btn" onClick={()=>capture.setPacketDevice(null)}>Clear device filter</button></div>}
-    {page === 'packets' && <PacketsPage
+    {page === 'packets' && <PacketsPage inShell
       packets={capture.packets}
+      rail={<CaptureControls state={capture}/>}
       matching={capture.visible}
       search={capture.query}
       onSearch={capture.setQuery}
@@ -149,7 +110,7 @@ function CaptureApp() {
       selectDetail(null); navigate('packets');
     }} />}
     {page === 'logs' && <LogViewerPage monitoringEvents={capture.monitor?.events} importedLog={importedLog} onImport={setImportedLog} archiveUnavailable initialLogs={[]} initialSecurityEvents={[]} />}
-    {page === 'settings' && <SettingsPage monitoring={controls} onNavigateDashboard={dashboard} />}
+    {page === 'settings' && <SettingsPage monitoring={<NameResolution state={capture}/>} onNavigateDashboard={dashboard} />}
   </AppShell>;
 }
 

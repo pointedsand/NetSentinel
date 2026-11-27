@@ -56,7 +56,7 @@ try {
        console.log('Passive Windows inventory:',await page.getByRole('definition').first().innerText());
      }
      await page.getByRole('button',{name:'Packets',exact:true}).click();
-     await page.getByRole('button',{name:'Stop',exact:true}).click();
+     await page.getByRole('button',{name:'Stop capture',exact:true}).click();
      await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();
      await page.getByRole('button',{name:'Start capture'}).waitFor();
      assert.equal(await page.getByRole('alert').count(),0);
@@ -75,7 +75,9 @@ try {
  await page.getByText('No matching packets found.').waitFor();
  await page.getByRole('button',{name:'Dashboard',exact:true}).first().click();
  await page.getByLabel('Capture source').selectOption('1');
+ await page.getByRole('button',{name:'Packets',exact:true}).click();
  await page.getByLabel('Display protocol').selectOption('TCP');
+ await page.getByRole('button',{name:'Dashboard',exact:true}).click();
  await page.getByRole('button',{name:'Start capture'}).click();
  await page.waitForFunction(() => document.querySelector('[data-testid=packet-count]')?.textContent === '6');
  await page.getByRole('button',{name:'Packets',exact:true}).click();
@@ -88,7 +90,7 @@ try {
  await page.getByRole('region',{name:'Packet details'}).waitFor();
  await page.getByText(config.sources[1],{exact:true}).last().waitFor();
  await page.getByRole('button',{name:'Devices',exact:true}).click();
- await page.getByRole('heading',{name:'Observed devices'}).waitFor();
+ await page.getByRole('heading',{name:'Devices',exact:true}).waitFor();
  await page.getByText('10.0.0.1',{exact:true}).first().waitFor();
  await page.getByRole('button',{name:'Alerts',exact:true}).click();
  await page.getByText(/No security events recorded/).waitFor();
@@ -117,11 +119,13 @@ try {
  await page.getByRole('button',{name:'Start capture'}).click();
  await page.waitForFunction(() => document.querySelector('[data-testid=packet-count]')?.textContent === '3');
  await page.getByLabel('Capture source').selectOption('2');
+ await page.getByRole('button',{name:'Packets',exact:true}).click();
  await page.getByLabel('Display protocol').selectOption('TCP');
+ await page.getByRole('button',{name:'Dashboard',exact:true}).click();
  await page.getByRole('button',{name:'Start capture'}).click();
  await page.waitForFunction(() => document.querySelector('[data-testid=packet-count]')?.textContent === '6');
  await page.getByRole('button',{name:'Alerts',exact:true}).click();
- await page.getByText(/First observation after baseline/).waitFor();
+ await page.getByText('New Device',{exact:true}).waitFor();
  await page.getByRole('button',{name:/Show details/}).click();
  const alertDetails = page.getByRole('region',{name:'Alert details'});
  await alertDetails.getByText(config.sources[2],{exact:true}).waitFor();
@@ -234,6 +238,36 @@ try {
  }
  assert.equal(downloadCount,3);
 
+ for (const [width,height] of [[1366,768],[1920,1080]]) {
+   await page.setViewportSize({width,height});
+   for (const route of ['Dashboard','Packets','Devices','Alerts','Logs','Settings']) {
+     await page.getByRole('navigation',{name:'Main navigation'}).getByRole('button',{name:route,exact:true}).click();
+     const shell = page.locator('.desktop-content');
+     assert.ok(await shell.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Main content overflows: '+route+' '+width);
+     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Window overflows: '+route);
+     if (route==='Dashboard') {
+       await page.getByLabel('Chart metric').selectOption('bandwidth');
+       await page.getByLabel('Time range').selectOption('1h');
+       assert.equal(await page.getByTestId('packet-count').innerText(),'6');
+       assert.equal(await page.locator('.metric-card').count(),3);
+       assert.ok(await page.locator('.traffic-card').evaluate(el=>el.getBoundingClientRect().bottom <= document.querySelector('.metric-grid').getBoundingClientRect().top));
+     }
+     if (route==='Packets') {
+       await page.getByPlaceholder(/Filter by name/).fill('');
+       const box = await page.locator('.packet-rail').boundingBox();
+       const table = await page.locator('.packet-stream').boundingBox();
+       assert.ok(box.x >= table.x+table.width-1);
+     }
+     if (route==='Logs') {
+       await page.getByRole('tab',{name:'Security Event Logs'}).click();
+       await page.locator('.log-severity').first().waitFor();
+       assert.equal(await page.locator('button.log-severity').count(),0);
+     }
+     if (process.env.NETSENTINEL_DESKTOP_REVIEW) {
+       await page.screenshot({path:resolve(process.env.NETSENTINEL_DESKTOP_REVIEW,route+'-'+width+'.png')});
+     }
+   }
+ }
  const longEvidence = 'Replay layout fixture '+ '0123456789abcdef'.repeat(90);
  const source = '\\Device\\NPF_{00000000-0000-0000-0000-000000000001}';
  const fixtureEvent = replayMonitor.detector.events[0];

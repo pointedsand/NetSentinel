@@ -5,8 +5,15 @@ const summaries: Record<string,string> = {
   'Gateway MAC changed':'The default gateway was observed with a different MAC address twice.',
   'Capture rate above threshold':'The measured capture rate exceeded the configured threshold.',
 };
+export function eventLabel(event: SecurityEvent) {
+  if (event.type === 'Device arrival') return event.evidence.startsWith('Observed after') ? 'Returning Device' : 'New Device';
+  return ({'Conflicting ARP claims':'Possible ARP Spoofing','Gateway MAC changed':'Gateway Change',
+    'Capture rate above threshold':'Traffic Spike'} as Record<string,string>)[event.type] || event.type;
+}
 export function alertSummary(event: SecurityEvent) {
-  return summaries[event.type] || event.evidence;
+  if (event.type==='Device arrival') return event.evidence.startsWith('Observed after') ?
+    'Observed again after at least 24 hours away.' : 'First observed after the discovery baseline.';
+  return summaries[event.type] || 'Review the recorded evidence for this observation.';
 }
 export function severityLabel(severity: string) {
   return ({Medium:'Warning',High:'Critical',Low:'Info'} as Record<string,string>)[severity] || severity;

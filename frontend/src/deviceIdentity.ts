@@ -1,3 +1,4 @@
+import type { Capture } from './hooks/useCapture';
 import type { LocalDevice, Packet } from './types';
 
 export function deviceName(d: LocalDevice) {
@@ -18,4 +19,8 @@ export function isDevicePacket(packet: Packet, device: LocalDevice) {
   if (!p || p.captureSource !== device.source || p.networkScope !== device.scope || p.vlanIds?.length) return false;
   return (p.sourceMac === device.mac && device.ips.includes(p.source)) ||
     (p.destinationMac === device.mac && device.ips.includes(p.destination));
+}
+
+export function sourceName(state: Capture, index: number) {
+  return interfaceName(state.sourceIds[index] ?? state.sources[index] ?? '',{...state.sourceNames,...state.monitor?.interfaceNames});
 }
