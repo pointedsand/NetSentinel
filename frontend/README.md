@@ -25,12 +25,14 @@ npm run lint
 - `src/hooks/usePacketSimulation.ts` requests initial and live packet records from `simulationData.ts`, then shares that stream with the pages while capture is running.
 - `src/simulationData.ts` owns the simulated device profiles and packet generation data (hosts, protocols, destinations, and packet sizes) used by Packets and the other views.
 - `src/pages/` contains the navigable page components:
+  - `AuthPage.tsx` provides the sign-in and account-creation screens before the app, with a demo skip route.
   - `DashboardOverview.tsx` is the simulated overview shown by the app navigation.
   - `PacketsPage.tsx` provides packet filtering, bounded DOM rendering, and export controls. `packetExport.ts` formats the selected packet data.
   - `DevicesPage.tsx` derives host activity from the shared packet stream and keeps labels, scan state, and acknowledgments in local component state.
   - `AlertsPage.tsx` evaluates simulated thresholds and manages alert rules and acknowledgments.
   - `LogViewerPage.tsx` derives capture summaries from the shared packet list and reflects the shared alert feed.
-  - `SettingsPage.tsx` demonstrates startup settings parsing and editing.
+  - `SettingsPage.tsx` provides monitoring preferences and an Account section for sign-in details and network selection.
+- `src/components/NetworkAuthorizationPanel.tsx` shares the network selection UI between account creation and Settings.
 - `src/services/telemetryClient.ts` defines a WebSocket telemetry/control client. `DashboardPage.tsx` is a separate UC09/UC10 backend telemetry view used by its tests; it is not the Dashboard route currently rendered by `App.tsx`.
 - `src/styles/` holds page and layout styles. `App.css` imports them in order; keep shared styles last because they provide common component rules.
 - `src/components/layout/` contains an alternate sidebar shell prototype. The current navigation shell is defined in `App.tsx`.
@@ -44,6 +46,7 @@ npm run lint
 - The Logs Upload action opens a file picker, but selected files are not read or imported yet. Log sizes, archive timestamps, and compression badges are illustrative metadata, not on-disk files.
 - The packet export's `PCAP` option currently writes readable text lines with a `.pcap` filename; it does not generate a binary PCAP capture. CSV and JSON options serialize the simulated packet records.
 - `SettingsPage` parses the supplied JSON string and updates its local form state. It does not load a file from disk or apply settings to the C++ backend.
+- Sign-in, account creation, email/password updates, and network selection are frontend-only screens. Credentials and selected networks are not saved or authenticated. Network names are samples; the frontend cannot detect the current SSID or verify network access/ownership. Selecting a network is a user confirmation of permission to monitor it, not technical verification of ownership.
 - `DashboardPage` and `telemetryClient` provide the interface for future backend telemetry. The app's current Dashboard route remains the simulated `DashboardOverview`.
 
 These boundaries should be updated in this document when the corresponding backend or file-storage integrations are implemented.

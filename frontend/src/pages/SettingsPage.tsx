@@ -5,6 +5,7 @@
  * frontend does not load config.json from disk or apply values to the backend.
  */
 import React, { useState } from 'react';
+import { NetworkAuthorizationPanel } from '../components/NetworkAuthorizationPanel';
 
 // Describes the startup settings that can be edited from the monitoring configuration page.
 export interface StartupConfig {
@@ -84,12 +85,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNav
 
   // Tracks whether the loaded configuration is valid or has fallen back to safe defaults.
   const [isError, setIsError] = useState<boolean>(initial.isError);
+  const [activeSection, setActiveSection] = useState<'monitoring' | 'account'>('monitoring');
+  const [accountMessage, setAccountMessage] = useState('');
 
   // Updates the local form status; persistence and backend application are not wired yet.
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setIsError(false);
     setBanner('Configuration saved and applied to active monitoring engine.');
+  };
+
+  const handleAccountUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    if (
+      e.currentTarget.name === 'change-password' &&
+      formData.get('newPassword') !== formData.get('confirmNewPassword')
+    ) {
+      setAccountMessage('Those passwords don’t match. Please try again.');
+      return;
+    }
+    setAccountMessage('Account services aren’t connected yet, so your changes haven’t been saved.');
   };
 
   return (
@@ -104,72 +120,174 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNav
         </div>
         <div className="page-heading-title">
           <span className="eyebrow">SYSTEM PREFERENCES (UC12)</span>
-          <h1>Configuration Settings</h1>
-          <p>Startup parameters loaded automatically from external config.json on launch.</p>
+          <h1>{activeSection === 'account' ? 'Account Settings' : 'Configuration Settings'}</h1>
+          <p>
+            {activeSection === 'account'
+              ? 'Manage your NetSentinel sign-in details.'
+              : 'Review your network monitoring preferences.'}
+          </p>
         </div>
         <div className="page-heading-actions" aria-hidden="true" />
       </div>
 
-      <section className="dashboard-card" style={{ maxWidth: '640px' }}>
-        {/* Displays whether the config was loaded successfully or replaced with default values. */}
-        <div
-          role="status"
-          style={{
-            padding: '0.75rem 1rem',
-            borderRadius: '8px',
-            marginBottom: '1.25rem',
-            fontSize: '0.85rem',
-            backgroundColor: isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
-            color: isError ? '#f87171' : '#4ade80',
-            border: `1px solid ${isError ? 'rgba(239, 68, 68, 0.35)' : 'rgba(34, 197, 94, 0.35)'}`,
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'monitoring'}
+          onClick={() => setActiveSection('monitoring')}
+        >
+          Monitoring
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'account'}
+          onClick={() => {
+            setAccountMessage('');
+            setActiveSection('account');
           }}
         >
-          {banner}
-        </div>
+          Account
+        </button>
+      </div>
 
-        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* The default interface selects which network adapter the monitoring engine should use. */}
-          <div className="form-row">
-            <label htmlFor="iface-input">Default Network Interface</label>
-            <input
-              id="iface-input"
-              className="filter-input"
-              value={config.defaultInterface}
-              onChange={(e) => setConfig({ ...config, defaultInterface: e.target.value })}
-            />
+      {activeSection === 'account' ? (
+        <section className="dashboard-card settings-account-card">
+          <div className="settings-account-heading">
+            <div>
+              <span className="eyebrow">SIGN-IN DETAILS</span>
+              <h2>Account information</h2>
+              <p>Update the email address and password used to sign in.</p>
+            </div>
+            <span className="account-status">ACCOUNT NOT CONNECTED</span>
           </div>
 
-          {/* Bandwidth limit that triggers an alert when the monitored link exceeds the threshold. */}
-          <div className="form-row">
-            <label htmlFor="threshold-input">Bandwidth Alert Threshold (Mbps)</label>
-            <input
-              id="threshold-input"
-              className="filter-input"
-              type="number"
-              value={config.bandwidthAlertThresholdMbps}
-              onChange={(e) => setConfig({ ...config, bandwidthAlertThresholdMbps: Number(e.target.value) })}
-            />
+          <p className="settings-account-notice">
+            Account services aren’t connected in this build. Submitted changes won’t be saved.
+          </p>
+
+          <form className="settings-account-form" name="change-email" onSubmit={handleAccountUpdate}>
+            <h3>Change email</h3>
+            <div className="form-row">
+              <label htmlFor="new-account-email">New email address</label>
+              <input id="new-account-email" name="newEmail" type="email" autoComplete="email" required />
+            </div>
+            <div className="form-row">
+              <label htmlFor="email-current-password">Confirm with your password</label>
+              <input
+                id="email-current-password"
+                name="currentPassword"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            <button type="submit" className="btn-export">Update email</button>
+          </form>
+
+          <form className="settings-account-form" name="change-password" onSubmit={handleAccountUpdate}>
+            <h3>Change password</h3>
+            <div className="form-row">
+              <label htmlFor="password-current-password">Current password</label>
+              <input
+                id="password-current-password"
+                name="currentPassword"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="new-account-password">New password</label>
+              <input
+                id="new-account-password"
+                name="newPassword"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="confirm-new-account-password">Confirm new password</label>
+              <input
+                id="confirm-new-account-password"
+                name="confirmNewPassword"
+                type="password"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+            </div>
+            <button type="submit" className="btn-export">Update password</button>
+          </form>
+
+          {accountMessage && <p className="settings-account-result" role="status">{accountMessage}</p>}
+          <NetworkAuthorizationPanel mode="manage" />
+        </section>
+      ) : (
+        <section className="dashboard-card" style={{ maxWidth: '640px' }}>
+          {/* Displays whether the config was loaded successfully or replaced with default values. */}
+          <div
+            role="status"
+            style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '8px',
+              marginBottom: '1.25rem',
+              fontSize: '0.85rem',
+              backgroundColor: isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+              color: isError ? '#f87171' : '#4ade80',
+              border: `1px solid ${isError ? 'rgba(239, 68, 68, 0.35)' : 'rgba(34, 197, 94, 0.35)'}`,
+            }}
+          >
+            {banner}
           </div>
 
-          {/* How long packet logs should be retained before the system starts pruning old records. */}
-          <div className="form-row">
-            <label htmlFor="retention-input">Log Retention Period (Days)</label>
-            <input
-              id="retention-input"
-              className="filter-input"
-              type="number"
-              value={config.logRetentionDays}
-              onChange={(e) => setConfig({ ...config, logRetentionDays: Number(e.target.value) })}
-            />
-          </div>
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* The default interface selects which network adapter the monitoring engine should use. */}
+            <div className="form-row">
+              <label htmlFor="iface-input">Default Network Interface</label>
+              <input
+                id="iface-input"
+                className="filter-input"
+                value={config.defaultInterface}
+                onChange={(e) => setConfig({ ...config, defaultInterface: e.target.value })}
+              />
+            </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-            <button type="submit" className="btn-export">
-              Apply Configuration
-            </button>
-          </div>
-        </form>
-      </section>
+            {/* Bandwidth limit that triggers an alert when the monitored link exceeds the threshold. */}
+            <div className="form-row">
+              <label htmlFor="threshold-input">Bandwidth Alert Threshold (Mbps)</label>
+              <input
+                id="threshold-input"
+                className="filter-input"
+                type="number"
+                value={config.bandwidthAlertThresholdMbps}
+                onChange={(e) => setConfig({ ...config, bandwidthAlertThresholdMbps: Number(e.target.value) })}
+              />
+            </div>
+
+            {/* How long packet logs should be retained before the system starts pruning old records. */}
+            <div className="form-row">
+              <label htmlFor="retention-input">Log Retention Period (Days)</label>
+              <input
+                id="retention-input"
+                className="filter-input"
+                type="number"
+                value={config.logRetentionDays}
+                onChange={(e) => setConfig({ ...config, logRetentionDays: Number(e.target.value) })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <button type="submit" className="btn-export">
+                Apply Configuration
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
     </div>
   );
 };

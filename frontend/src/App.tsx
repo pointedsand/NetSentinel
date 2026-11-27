@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import netSentinelMark from './assets/netsentinel-mark.png';
 import './App.css';
+import './styles/auth.css';
 import { AlertsPage } from './pages/AlertsPage';
 import { DashboardOverview } from './pages/DashboardOverview';
 import { DevicesPage } from './pages/DevicesPage';
 import { LogViewerPage } from './pages/LogViewerPage';
 import { PacketsPage } from './pages/PacketsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AuthPage } from './pages/AuthPage';
 import { createSeedAlerts, DEFAULT_ALERT_RULES } from './pages/alertTypes';
 import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
@@ -57,20 +59,17 @@ function AppShell({ children, activePage, setActivePage }: { children: ReactNode
 }
 
 export function App() {
-  const [live, setLive] = useState(() => new URLSearchParams(location.search).get('mode') === 'live');
-  return live ? <LiveWorkspace onDemo={() => setLive(false)} /> : <>
-    <button className="tool-btn" onClick={() => setLive(true)}>Connect to live backend</button>
-    <DemoApp />
-  </>;
-}
-
-function DemoApp() {
+  const [hasContinued, setHasContinued] = useState(false);
   // Shared state stays above page selection so navigation does not reset cross-page data.
   const [activePage, setActivePage] = useState<PageId>('dashboard');
   const [alerts, setAlerts] = useState<AlertItem[]>(() => createSeedAlerts());
   const [alertRules, setAlertRules] = useState<AlertRules>(DEFAULT_ALERT_RULES);
   // PacketsPage receives only the shared stream generated from simulationData via this hook.
   const { packets, setPackets, isCapturing, setIsCapturing } = usePacketSimulation();
+
+  if (!hasContinued) {
+    return <AuthPage onContinue={() => setHasContinued(true)} />;
+  }
 
   return (
     <AppShell activePage={activePage} setActivePage={setActivePage}>
