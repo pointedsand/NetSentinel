@@ -4,9 +4,73 @@ import { describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { SIMULATED_DEVICES } from '../simulationData';
 
+function renderAppInDemoMode() {
+  const result = render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: 'Skip (remove me before demo)' }));
+  return result;
+}
+
+describe('Account access screen', () => {
+  it('offers sign-in and account creation before entering the app', () => {
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy();
+    expect(screen.getByLabelText('Email address')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Skip (remove me before demo)' })).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeTruthy();
+    expect(screen.getByLabelText('Confirm password')).toBeTruthy();
+  });
+
+  it('does not imply sign-in succeeded without account services and allows the demo to continue', () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'user@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'example-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(screen.getByRole('status').textContent).toMatch(/haven’t been saved/);
+    fireEvent.click(screen.getByRole('button', { name: 'Skip (remove me before demo)' }));
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
+  });
+
+  it('checks that account creation passwords match', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Demo User' } });
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'user@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'first-password' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'second-password' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'Continue' }).closest('form')!);
+
+    expect(screen.getByRole('alert').textContent).toMatch(/passwords don’t match/i);
+  });
+
+  it('moves account creation into network authorization using sample SSIDs', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Demo User' } });
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'user@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'valid-password' } });
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'valid-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(screen.getByRole('heading', { name: 'Authorize a network' })).toBeTruthy();
+    expect(screen.getByText('Maple-Home-WiFi')).toBeTruthy();
+    expect(screen.getByText(/By selecting the network you’re connected to, you confirm/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /Maple-Home-WiFi/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with selected networks' }));
+
+    expect(screen.getByRole('heading', { name: 'Network selected' })).toBeTruthy();
+    expect(screen.getByText(/haven’t been saved/)).toBeTruthy();
+  });
+});
+
 describe('Dashboard title layout', () => {
   it('centers the dashboard title while keeping the simulation badge on the right', () => {
-    const { container } = render(<App />);
+    const { container } = renderAppInDemoMode();
 
     expect(container.querySelector('.dashboard-heading-centered .dashboard-title')).toBeTruthy();
     expect(container.querySelector('.dashboard-heading-centered > .demo-badge')).toBeTruthy();
@@ -15,7 +79,7 @@ describe('Dashboard title layout', () => {
 
 describe('Packets tab virtualization', () => {
   it('displays packet hosts and labels from the shared simulation data', () => {
-    const { container } = render(<App />);
+    const { container } = renderAppInDemoMode();
     fireEvent.click(screen.getByRole('button', { name: 'Packets' }));
 
     const rows = Array.from(container.querySelectorAll<HTMLTableRowElement>(
@@ -31,7 +95,7 @@ describe('Packets tab virtualization', () => {
   });
 
   it('renders only nearby packet rows and renders later rows when scrolled', () => {
-    const { container } = render(<App />);
+    const { container } = renderAppInDemoMode();
     fireEvent.click(screen.getByRole('button', { name: 'Packets' }));
 
     const tableContainer = container.querySelector('.packet-virtualized-container') as HTMLDivElement;
@@ -52,7 +116,7 @@ describe('Packets tab virtualization', () => {
 
 describe('Logs and Settings navigation', () => {
   it('keeps the Logs title centered without a redundant Dashboard button', () => {
-    const { container } = render(<App />);
+    const { container } = renderAppInDemoMode();
     fireEvent.click(screen.getByRole('button', { name: 'Logs' }));
 
     expect(screen.queryByRole('button', { name: '< Dashboard' })).toBeNull();
@@ -61,7 +125,7 @@ describe('Logs and Settings navigation', () => {
   });
 
   it('keeps a centered Settings title and its Dashboard back button', () => {
-    const { container } = render(<App />);
+    const { container } = renderAppInDemoMode();
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
 
     expect(screen.getByRole('button', { name: '< Dashboard' })).toBeTruthy();
@@ -74,7 +138,7 @@ describe('Logs and Settings navigation', () => {
 
 describe('Dashboard alert synchronization', () => {
   it('reflects alert acknowledgments made on the Alerts page', () => {
-    render(<App />);
+    renderAppInDemoMode();
     fireEvent.click(screen.getByRole('button', { name: 'Alerts' }));
 
     const maliciousAlertRow = Array.from(document.querySelectorAll<HTMLTableRowElement>('.alerts-table tbody tr'))
@@ -90,7 +154,7 @@ describe('Dashboard alert synchronization', () => {
 
 describe('Shared simulated data in Logs', () => {
   it('shows the shared simulated hosts and alert feed in the Logs page', () => {
-    render(<App />);
+    renderAppInDemoMode();
     fireEvent.click(screen.getByRole('button', { name: 'Logs' }));
 
     const captureRows = Array.from(document.querySelectorAll('.logs-table tbody tr'));
