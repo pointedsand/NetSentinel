@@ -1,23 +1,33 @@
-import { interfaceName } from '../deviceIdentity';
+import { sourceName } from '../deviceIdentity';
 import type { Capture } from '../hooks/useCapture';
 
-export function CaptureControls({ state, startButton = true }: { state: Capture; startButton?: boolean }) {
-  const { connected,running,pending,error,sources,selected,protocol,setProtocol,activeDns,stats,mode,command,capture } = state;
-  return <section className="dashboard-card capture-controls" aria-label="Capture controls">
-    <p role="status">{connected ? 'Backend connected' : 'Backend disconnected · reconnecting'} · {mode === '--replay' ? 'PCAP replay' : mode ? 'Live interface' : 'Waiting for source'} · {running ? 'Running' : 'Paused'} · Output drops: {stats.outputDrops}</p>
-    {error && <p role="alert">{error}</p>}
-    <label><input type="checkbox" checked={activeDns} disabled={!connected}
-      onChange={e => command('active_dns',{enabled:e.target.checked})} /> Active reverse DNS lookups</label>
-    <label>Capture source <select className="modal-select" value={selected} disabled={!connected || running || pending}
-      onChange={e => command('select_source', {index:Number(e.target.value)})}>
-      {sources.map((s,i) => <option key={state.sourceIds[i]} title={state.sourceIds[i]} value={i}>{interfaceName(state.sourceIds[i] ?? s,{...state.sourceNames,...state.monitor?.interfaceNames})}</option>)}
+export function CaptureSource({state}: {state:Capture}) {
+  return <select aria-label="Capture source" title={state.sourceIds[state.selected]} className="source-select"
+    value={state.selected} disabled={!state.connected || state.running || state.pending || !state.sources.length}
+    onChange={e=>state.command('select_source',{index:Number(e.target.value)})}>
+    {!state.sources.length && <option value={0}>Awaiting source</option>}
+    {state.sources.map((_,i)=><option key={state.sourceIds[i]} value={i}>{sourceName(state,i)}</option>)}
+  </select>;
+}
+
+export function NameResolution({state}: {state:Capture}) {
+  return <section className="dashboard-card preferences-card"><h2>Name resolution</h2>
+    <label><input type="checkbox" checked={state.activeDns} disabled={!state.connected}
+      onChange={e=>state.command('active_dns',{enabled:e.target.checked})}/> Active reverse DNS lookups</label>
+    <p>Look up hostnames for observed addresses in the background.</p></section>;
+}
+
+export function CaptureControls({state}: {state:Capture}) {
+  return <><h2>Capture session</h2>
+    <label>Capture source<CaptureSource state={state}/></label>
+    <label>Display protocol<select aria-label="Display protocol" value={state.protocol} onChange={e=>state.setProtocol(e.target.value)}>
+      <option value="">All protocols</option>{['IPv4','IPv6','TCP','UDP','ICMP','ICMPv6','ARP','LLDP','IGMP','ESP','OTHER'].map(p=><option key={p}>{p}</option>)}
     </select></label>
-    <p>Captured frames: {stats.packetCount + stats.rejected} · Retained: {stats.retained} · Evicted: {stats.evicted}</p>
-    <label>Display protocol <select className="modal-select" value={protocol}
-      onChange={e => setProtocol(e.target.value)}>
-      <option value="">All protocols</option>
-      {['IPv4','IPv6','TCP','UDP','ICMP','ICMPv6','ARP','LLDP','IGMP','ESP','OTHER'].map(p => <option key={p}>{p}</option>)}
-    </select></label>
-    {startButton && <button className={`control-btn ${running ? "btn-stop" : "btn-start"}`} disabled={!connected || pending} onClick={() => capture(!running)}>{running ? "Stop capture" : "Start capture"}</button>}
-  </section>;
+    <dl className="rail-totals">{[['Captured frames',state.stats.packetCount+state.stats.rejected],['Retained',state.stats.retained],['Output drops',state.stats.outputDrops]].map(([k,v])=>
+      <div key={k}><dt>{k}</dt><dd>{v.toLocaleString()}</dd></div>)}</dl>
+    <details className="session-diagnostics"><summary>Session details</summary><dl className="rail-totals">
+      <div><dt>Evicted</dt><dd>{state.stats.evicted}</dd></div><div><dt>Rejected</dt><dd>{state.stats.rejected}</dd></div>
+      <div><dt>Reverse DNS</dt><dd>{state.activeDns?'On':'Off'}</dd></div></dl>
+      <p>{state.sourceIds[state.selected]}</p></details>
+  </>;
 }

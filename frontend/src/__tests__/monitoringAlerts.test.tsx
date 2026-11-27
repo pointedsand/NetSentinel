@@ -20,10 +20,13 @@ it.each([['Info','Info'],['Medium','Warning'],['Critical','Critical']])('present
   const state=capture({...view,events:[{...entry,severity:level}]});
   render(<MonitoringAlerts capture={state} onPackets={vi.fn()}/>);
   const card=screen.getByRole('article');
-  expect(within(card).getByText(label)).toBeVisible();
+  expect(card).toHaveAttribute('data-severity',label);
+  expect(within(card).getByText('Possible ARP Spoofing')).toBeVisible();
+  expect(within(card).queryByText(level)).toBeNull();
   expect(within(card).queryByText(source)).toBeNull();
   fireEvent.click(within(card).getByRole('button',{expanded:false}));
   const details=within(card).getByRole('region',{name:'Alert details'});
+  expect(within(details).getByText(level)).toBeVisible();
   expect(within(details).getByText(entry.evidence)).toBeVisible();
   expect(within(details).getByText(source)).toBeVisible();
   expect(within(details).getByText('Ethernet')).toBeVisible();
@@ -68,4 +71,19 @@ it('only links retained records inside the scoped alert observation window',()=>
   expect(isAlertPacket(packet,rate)).toBe(true);
   expect(isAlertPacket(packet,{...rate,measurement:undefined})).toBe(false);
   expect(isAlertPacket(packet,{...rate,time:850})).toBe(false);
+});
+
+it('presents an untrusted arrival as a reviewable device observation and retains Info in details',()=>{
+  const arrival={...entry,type:'Device arrival',severity:'Info',evidence:'First observation after baseline via ARP sender. Trust: untrusted.'};
+  const state=capture({...view,events:[arrival]});
+  const {rerender}=render(<MonitoringAlerts capture={state} onPackets={vi.fn()}/>);
+  const card=within(screen.getByRole('article'));
+  expect(card.getByText('New Device')).toBeVisible();
+  expect(card.getByText('Needs review')).toBeVisible();
+  expect(card.queryByText(arrival.evidence)).toBeNull();
+  fireEvent.click(card.getByRole('button',{expanded:false}));
+  expect(card.getByText('Info')).toBeVisible();
+  expect(card.getByText(arrival.evidence)).toBeVisible();
+  rerender(<MonitoringAlerts capture={capture({...view,events:[{...arrival,acknowledged:true}]})} onPackets={vi.fn()}/>);
+  expect(card.queryByText('Needs review')).toBeNull();
 });

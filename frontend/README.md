@@ -1,6 +1,6 @@
 # NetSentinel Frontend
 
-The React and TypeScript application uses the local capture bridge for live and replay sessions. Dashboard, Packets, Devices and Settings share one WebSocket connection. Follow the [integrated startup guide](../backend/service/README.md) to launch the complete application.
+The React and TypeScript application uses the local capture bridge for live and replay sessions. The six workspace pages share one WebSocket connection. Follow the [integrated startup guide](../backend/service/README.md) to launch the complete application.
 
 ## Getting started
 
@@ -21,7 +21,9 @@ npm run lint
 
 ## Capture workspace
 
-Open the local dashboard from the welcome screen. Dashboard and Packets share filters, source selection, capture controls and bounded history. Devices shows local MAC identities and a separate table of observed endpoints. Settings changes the active source and reverse DNS preference. Alerts shows evidence, acknowledgments and rules. Logs imports CSV/JSON packet metadata and displays security event records. Packet metadata can be exported as CSV or JSON.
+Open the local dashboard from the welcome screen. Choose a source in the Dashboard header or the Packets rail. Start and stop from the header on any page. Stopping keeps packet history and restarting appends to it. The Dashboard plots the rate of packets or bytes in retained observations by capture time. Its KPI cards use backend totals and recent throughput. Replay throughput measures file processing speed.
+
+Packets owns display filters, packet details, CSV/JSON export, and Clear Capture Log. Settings controls optional reverse DNS. Devices shows trusted local identities and observed endpoints. Alerts shows the recorded severity and evidence in expanded details. Logs imports metadata independently of live monitoring.
 
 ## Application structure
 
@@ -30,7 +32,7 @@ Open the local dashboard from the welcome screen. Dashboard and Packets share fi
 - `src/simulationData.ts` owns the simulated device profiles and packet generation data (hosts, protocols, destinations, and packet sizes) used by Packets and the other views.
 - `src/pages/` contains the navigable page components:
   - `AuthPage.tsx` provides the sign-in and account-creation screens before the app, with a demo skip route.
-  - `DashboardOverview.tsx` renders the original overview with real telemetry or explicit offline simulation.
+  - `DashboardOverview.tsx` renders the traffic chart, summary cards, and bounded packet and alert previews.
   - `PacketsPage.tsx` provides packet filtering, bounded DOM rendering, and export controls. `packetExport.ts` formats the selected packet data.
   - `DevicesPage.tsx` derives host activity from the shared packet stream and keeps labels, scan state, and acknowledgments in local component state.
   - `AlertsPage.tsx` evaluates simulated thresholds and manages alert rules and acknowledgments.
@@ -38,8 +40,8 @@ Open the local dashboard from the welcome screen. Dashboard and Packets share fi
   - `SettingsPage.tsx` provides monitoring preferences and an Account section for sign-in details and network selection.
 - `src/components/NetworkAuthorizationPanel.tsx` shares the network selection UI between account creation and Settings.
 - `src/services/telemetryClient.ts` defines a WebSocket telemetry/control client. `DashboardPage.tsx` is a separate UC09/UC10 backend telemetry view used by its tests; it is not the Dashboard route currently rendered by `App.tsx`.
-- `src/styles/` holds page and layout styles. `App.css` imports them in order; keep shared styles last because they provide common component rules.
-- `src/components/layout/` contains an alternate sidebar shell prototype. The current navigation shell is defined in `App.tsx`.
+- `src/styles/` holds page and layout styles. `App.css` imports the shared rules followed by desktop workspace styles.
+- `src/components/layout/` contains the active sidebar, shared session header, and scrollable desktop workspace. `App.tsx` supplies navigation and capture state.
 - `src/**/__tests__/` contains application and page behavior tests. `setupTests.ts` configures the DOM matchers and cleanup.
 
 ## Offline simulation and account preview

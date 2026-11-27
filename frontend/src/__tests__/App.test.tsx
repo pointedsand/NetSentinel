@@ -68,12 +68,20 @@ describe('Account access screen', () => {
   });
 });
 
-describe('Dashboard title layout', () => {
-  it('centers the dashboard title while keeping the simulation badge on the right', () => {
-    const { container } = renderAppInDemoMode();
-
-    expect(container.querySelector('.dashboard-heading-centered .dashboard-title')).toBeTruthy();
-    expect(container.querySelector('.dashboard-heading-centered > .demo-badge')).toBeTruthy();
+describe('Desktop application shell', () => {
+  it('keeps the sidebar active page and capture action synchronized across routes', () => {
+    renderAppInDemoMode();
+    const sidebar = screen.getByRole('navigation',{name:'Main navigation'});
+    expect(within(sidebar).getByRole('button',{name:'Dashboard'})).toHaveAttribute('aria-current','page');
+    const header = screen.getByRole('banner',{name:'Workspace'});
+    expect(within(header).getByRole('heading',{name:'Dashboard'})).toBeVisible();
+    fireEvent.click(within(header).getByRole('button',{name:'Stop capture'}));
+    fireEvent.click(within(sidebar).getByRole('button',{name:'Packets'}));
+    expect(within(sidebar).getByRole('button',{name:'Packets'})).toHaveAttribute('aria-current','page');
+    expect(within(header).getByRole('button',{name:'Start capture'})).toBeVisible();
+    fireEvent.click(within(header).getByRole('button',{name:'Start capture'}));
+    fireEvent.click(within(sidebar).getByRole('button',{name:'Dashboard'}));
+    expect(within(header).getByRole('button',{name:'Stop capture'})).toBeVisible();
   });
 });
 
@@ -115,24 +123,17 @@ describe('Packets tab virtualization', () => {
 });
 
 describe('Logs and Settings navigation', () => {
-  it('keeps the Logs title centered without a redundant Dashboard button', () => {
-    const { container } = renderAppInDemoMode();
-    fireEvent.click(screen.getByRole('button', { name: 'Logs' }));
-
-    expect(screen.queryByRole('button', { name: '< Dashboard' })).toBeNull();
-    expect(screen.getByRole('heading', { name: 'Log Viewer' }).parentElement?.classList.contains('page-heading-title')).toBe(true);
-    expect(container.querySelector('.dashboard-heading.page-heading-centered')).toBeTruthy();
-  });
-
-  it('keeps a centered Settings title and its Dashboard back button', () => {
-    const { container } = renderAppInDemoMode();
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-
-    expect(screen.getByRole('button', { name: '< Dashboard' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Configuration Settings' }).parentElement?.classList.contains('page-heading-title')).toBe(true);
-
-    fireEvent.click(screen.getByRole('button', { name: '< Dashboard' }));
-    expect(container.querySelector('.dashboard-heading.page-heading-centered')).toBeNull();
+  it('changes the shared header while preserving page-specific actions and account settings', () => {
+    renderAppInDemoMode();
+    const nav = screen.getByRole('navigation',{name:'Main navigation'});
+    const header = screen.getByRole('banner',{name:'Workspace'});
+    fireEvent.click(within(nav).getByRole('button',{name:'Logs'}));
+    expect(within(header).getByRole('heading',{name:'Logs'})).toBeVisible();
+    expect(screen.getByRole('button',{name:'Upload'})).toBeVisible();
+    fireEvent.click(within(nav).getByRole('button',{name:'Settings'}));
+    expect(within(header).getByRole('heading',{name:'Settings'})).toBeVisible();
+    fireEvent.click(screen.getByRole('tab',{name:'Account'}));
+    expect(screen.getByRole('heading',{name:'Change password'})).toBeVisible();
   });
 });
 
@@ -172,5 +173,8 @@ describe('Shared simulated data in Logs', () => {
     const securityRows = Array.from(document.querySelectorAll('.logs-table tbody tr'));
     expect(securityRows.some((row) => row.textContent?.includes('Malicious Traffic'))).toBe(true);
     expect(securityRows.some((row) => row.textContent?.includes('192.168.1.100'))).toBe(true);
+    const info = screen.getByRole('cell',{name:'Info'});
+    expect(within(info).queryByRole('button')).toBeNull();
+    expect(info.querySelector('a,input,[tabindex]')).toBeNull();
   });
 });
