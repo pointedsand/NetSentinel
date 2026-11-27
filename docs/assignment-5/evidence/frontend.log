@@ -1,0 +1,86 @@
+﻿Started 2026-11-27T17:31:16.7375024-06:00
+Command npm.cmd --prefix frontend test -- --run --reporter=verbose
+Exit code 0
+Wall seconds 36.5025522
+
+
+> frontend@0.0.0 test
+> vitest --run --reporter=verbose
+
+
+ RUN  v5.1.0 <repo>/frontend
+
+ ✓ src/__tests__/simulationData.test.ts > shared simulated packet data > creates initial packets for every simulated host using its shared profile 141ms
+ ✓ src/__tests__/simulationData.test.ts > shared simulated packet data > creates live packet batches only from shared simulated hosts 7ms
+ ✓ src/__tests__/useCapture.test.ts > updates late PTR names on the matching interface and keeps IP addresses and totals when filtering 88ms
+ ✓ src/__tests__/useCapture.test.ts > keeps stop pending until the worker acknowledges shutdown 5ms
+ ✓ src/__tests__/administrator.test.tsx > administrator controls > resumes just the challenged command and keeps the token out of ordinary telemetry requests 46ms
+ ✓ src/__tests__/administrator.test.tsx > administrator controls > ignores a late challenge after navigation and a late unlock after cancellation 6ms
+ ✓ src/__tests__/deviceIdentity.test.tsx > prefers operator labels then current hostname and keeps a recognizable unknown identity 289ms
+ ✓ src/__tests__/deviceIdentity.test.tsx > associates retained packets by network, MAC and corresponding IP together 1ms
+ ✓ src/__tests__/deviceIdentity.test.tsx > searches and sorts observed endpoints without changing the underlying packet list 95ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > presents Info with full expandable evidence 354ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > presents Medium with full expandable evidence 52ms
+ ✓ src/pages/__tests__/AlertsPage.test.tsx > AlertsPage > shows seeded alerts and filters them by search and severity 394ms
+ ✓ src/__tests__/administrator.test.tsx > administrator controls > validates credential confirmation before submitting and requires the current password to disable 298ms
+ ✓ src/__tests__/fileDialogs.test.tsx > reads a selected file once and ignores cancellation 261ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > TC01: deletes all historical logs after user confirmation 383ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > presents Critical with full expandable evidence 43ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > keeps filters in the acknowledgment request and saves supported rule settings 80ms
+ ✓ src/__tests__/administrator.test.tsx > setup file enrollment > confirms the file through the bridge and clears the proof and password fields after enrollment 157ms
+ ✓ src/__tests__/administrator.test.tsx > setup file enrollment > rejects a malformed, oversized, or unrelated file before sending its contents 68ms
+ ✓ src/__tests__/administrator.test.tsx > setup file enrollment > shows backend rejection, permits renewal and copies only the displayed path 56ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > distinguishes empty, filtered, unavailable and disconnected history 46ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > only links retained records inside the scoped alert observation window 1ms
+ ✓ src/__tests__/monitoringAlerts.test.tsx > presents an untrusted arrival as a reviewable device observation and retains Info in details 50ms
+ ✓ src/__tests__/fileDialogs.test.tsx > reports a File API read failure without reopening the chooser 237ms
+ ✓ src/__tests__/fileDialogs.test.tsx > downloads once even when a native save picker exists 121ms
+ ✓ src/pages/__tests__/AlertsPage.test.tsx > AlertsPage > acknowledges an alert and records it in the audit trail and detail drawer 105ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > TC02: preserves existing historical logs when deletion is canceled 103ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > TC03: disables Clear History button when log repository is already empty 18ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > removes only the selected archived log 72ms
+ ✓ src/pages/__tests__/DevicesPage.test.tsx > DevicesPage > shows simulated devices, packet-derived bandwidth, and filters by search and status 446ms
+ ✓ src/pages/__tests__/DevicesPage.test.tsx > DevicesPage > navigates back to the dashboard from the header button 53ms
+ ✓ src/pages/__tests__/DevicesPage.test.tsx > DevicesPage > trims and saves labels and lets an operator acknowledge a flagged device 219ms
+ ✓ src/pages/__tests__/DevicesPage.test.tsx > DevicesPage > simulates a subnet scan and adds a flagged newly discovered host 59ms
+ ✓ src/pages/__tests__/AlertsPage.test.tsx > AlertsPage > validates rule thresholds and saves valid rule values 189ms
+ ✓ src/pages/__tests__/AlertsPage.test.tsx > AlertsPage > creates a bandwidth alert when live packet rate exceeds the saved threshold 75ms
+ ✓ src/pages/__tests__/AlertsPage.test.tsx > AlertsPage > derives new-device alerts from packet data and suppresses muted categories 70ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > shows the empty state and disables Clear History after the last log is removed 42ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > filters archived logs by filename and protocol and summarizes stored sizes 54ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > downloads the selected log metadata as a CSV file 27ms
+ ✓ src/__tests__/App.test.tsx > Local workspace access > opens the Dashboard without credentials and exposes Access Control in Settings 400ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > shows and clears security event logs independently 80ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > opens the file picker for CSV and JSON packet metadata when Upload is clicked 23ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC11: Log Cleanup (LogViewerPage) > uses the file input even when the browser exposes a restricted native picker 21ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC12: Configuration Startup (SettingsPage) > TC04: parses valid config.json values accurately 1ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC12: Configuration Startup (SettingsPage) > TC05: falls back to SAFE_DEFAULT_CONFIG on invalid JSON or negative thresholds 12ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC12: Configuration Startup (SettingsPage) > keeps credential management unavailable while the backend is disconnected 10ms
+ ✓ src/pages/__tests__/uc11_uc12.test.tsx > UC12: Configuration Startup (SettingsPage) > lets the user add and select a network in the sample network panel without claiming it was verified 28ms
+ ✓ src/__tests__/App.test.tsx > Desktop application shell > keeps the sidebar active page and capture action synchronized across routes 198ms
+ ✓ src/__tests__/App.test.tsx > Packets tab virtualization > displays packet hosts and labels from the shared simulation data 93ms
+ ✓ src/__tests__/App.test.tsx > Packets tab virtualization > renders only nearby packet rows and renders later rows when scrolled 103ms
+ ✓ src/__tests__/App.test.tsx > Logs and Settings navigation > changes the shared header while preserving page-specific actions and access settings 101ms
+ ✓ src/__tests__/App.test.tsx > Dashboard alert synchronization > reflects alert acknowledgments made on the Alerts page 88ms
+ ✓ src/__tests__/App.test.tsx > Shared simulated data in Logs > shows the shared simulated hosts and alert feed in the Logs page 67ms
+ ✓ src/__tests__/importPackets.test.ts > round trips both packet export formats 4ms
+ ✓ src/__tests__/importPackets.test.ts > rejects binary captures, incomplete schemas and malformed CSV 2ms
+stderr | src/pages/__tests__/uc09_uc10.test.tsx > UC9 Dashboard Monitoring > TC09: keeps up with a high-frequency telemetry stream
+Encountered two children with the same key, `0`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+System.Management.Automation.RemoteException
+ ✓ src/pages/__tests__/uc09_uc10.test.tsx > UC9 Dashboard Monitoring > TC08: renders packet, bandwidth and connection telemetry 64ms
+ ✓ src/pages/__tests__/uc09_uc10.test.tsx > UC9 Dashboard Monitoring > TC09: keeps up with a high-frequency telemetry stream 455ms
+ ✓ src/pages/__tests__/uc09_uc10.test.tsx > UC9 Dashboard Monitoring > TC10: shows zero counts and an idle warning when disconnected 43ms
+ ✓ src/pages/__tests__/uc09_uc10.test.tsx > UC10 Session Control > TC11: start dispatches the control signal and flags RUNNING 62ms
+ ✓ src/pages/__tests__/uc09_uc10.test.tsx > UC10 Session Control > TC12: stop dispatches the control signal and flags PAUSED 76ms
+ ✓ src/pages/__tests__/uc09_uc10.test.tsx > UC10 Session Control > TC13: IPC failure shows a dismissible banner and keeps the status unchanged 104ms
+
+ Test Files  12 passed (12)
+      Tests  61 passed (61)
+   Start at  17:31:24
+   Duration  27.94s (environment 67%, setup 29%, tests 2%, import 1%, transform 1%)
+
+Environment  jsdom was created 12 times · 188.02s total, 67% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

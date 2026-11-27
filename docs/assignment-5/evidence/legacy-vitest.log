@@ -1,0 +1,18 @@
+﻿Started 2026-11-27T17:46:34.2253003-06:00
+Command npm.cmd --prefix frontend test -- --run src/pages/__tests__/uc11_uc12.test.tsx
+Exit code 0
+Wall seconds 5.3513657
+
+
+> frontend@0.0.0 test
+> vitest --run src/pages/__tests__/uc11_uc12.test.tsx
+
+
+ RUN  v5.1.0 <repo>/frontend
+
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  17:46:37
+   Duration  1.93s (environment 57%, tests 20%, setup 19%, transform 2%, import 1%, worker 1%)
+

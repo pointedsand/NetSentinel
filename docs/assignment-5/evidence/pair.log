@@ -1,0 +1,12 @@
+﻿Started 2026-11-27T17:32:22.0402841-06:00
+Command backend/build/pair-a5.exe
+Exit code 0
+Wall seconds 0.3217275
+
+10.0.0.1 -> 10.0.0.2: 3 packets, 1704 bytes (min 84, max 1500, avg 568)
+10.0.0.2 -> 10.0.0.1: 1 packets, 60 bytes (min 60, max 60, avg 60)
+Total: 4 packets, 1764 bytes
+TCP: 2
+UDP: 1
+ICMP: 1
+OTHER: 0

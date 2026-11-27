@@ -1,0 +1,9 @@
+﻿Started 2026-11-27T17:31:16.1742770-06:00
+Command cmake --build backend/build/core
+Exit code 0
+Wall seconds 3.7985672
+
+[1/4] Building CXX object CMakeFiles/parser_tests.dir/tests/ProtocolParserTests.cpp.obj
+[2/4] Linking CXX executable parser_tests.exe
+[3/4] Building CXX object CMakeFiles/packet_filtering_tests.dir/tests/PacketFilteringTests.cpp.obj
+[4/4] Linking CXX executable packet_filtering_tests.exe

@@ -91,7 +91,9 @@ void test_arp_classification() {
     assert(!result.source_port.has_value());
     assert(!result.destination_port.has_value());
     assert(result.packet_size == 60);
-    std::cout << "PASS UT-04: ARP classified as Other\n";
+    assert(result.details.network == "ARP");
+    assert(result.details.status == "truncated");
+    std::cout << "PASS UT-04: ARP network metadata, truncated body, Other transport bucket\n";
 }
 
 

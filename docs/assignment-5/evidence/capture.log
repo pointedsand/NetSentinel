@@ -1,0 +1,64 @@
+﻿Started 2026-11-27T17:32:24.5157533-06:00
+Command ctest --test-dir backend/build/capture -V
+Exit code 0
+Wall seconds 0.8744115
+
+UpdateCTestConfiguration  from :<repo>/backend/build/capture/DartConfiguration.tcl
+Parse Config file:<repo>/backend/build/capture/DartConfiguration.tcl
+Test project <repo>/backend/build/capture
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: FrameDecoderTests
+
+1: Test command: <repo>\backend\build\capture\frame_decoder_tests.exe
+1: Working Directory: <repo>/backend/build/capture
+1: Test timeout computed to be: 1500
+1/5 Test #1: FrameDecoderTests ................   Passed    0.02 sec
+test 2
+    Start 2: CaptureLifecycleTests
+
+2: Test command: <repo>\backend\build\capture\capture_tests.exe
+2: Working Directory: <repo>/backend/build/capture
+2: Test timeout computed to be: 1500
+2: Link type: Ethernet
+2: Link type: Ethernet
+2: Stop, reopen, and rejected output accounted for.
+2/5 Test #2: CaptureLifecycleTests ............   Passed    0.05 sec
+test 3
+    Start 3: ProtocolParserTests
+
+3: Test command: <repo>\backend\build\capture\parser_tests.exe
+3: Working Directory: <repo>/backend/build/capture
+3: Test timeout computed to be: 1500
+3: PASS UT-01: TCP parsing
+3: PASS UT-02: UDP parsing
+3: PASS UT-03: Truncated frame rejected
+3: PASS UT-04: ARP network metadata, truncated body, Other transport bucket
+3: All 4 parser tests passed.
+3/5 Test #3: ProtocolParserTests ..............   Passed    0.07 sec
+test 4
+    Start 4: PacketFilteringTests
+
+4: Test command: <repo>\backend\build\capture\packet_filtering_tests.exe
+4: Working Directory: <repo>/backend/build/capture
+4: Test timeout computed to be: 1500
+4: All Packet Filtering tests passed!
+4/5 Test #4: PacketFilteringTests .............   Passed    0.06 sec
+test 5
+    Start 5: PacketPipelineTests
+
+5: Test command: <repo>\backend\build\capture\packet_pipeline_tests.exe
+5: Working Directory: <repo>/backend/build/capture
+5: Test timeout computed to be: 1500
+5: UDP length regression checks passed.
+5: All packet pipeline tests passed (including existing-behavior checks).
+5/5 Test #5: PacketPipelineTests ..............   Passed    0.02 sec
+
+100% tests passed out of 5
+
+Total Test time (real) =   0.48 sec

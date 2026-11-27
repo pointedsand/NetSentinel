@@ -1,0 +1,22 @@
+﻿Started 2026-11-27T17:43:49.0630055-06:00
+Command node docs/assignment-5/firefox-render.mjs
+Exit code 1
+Wall seconds 0.3840381
+
+node:net:2390
+    const ex = new UVExceptionWithHostPort(err, 'listen', address, port);
+               ^
+System.Management.Automation.RemoteException
+Error: listen EADDRINUSE: address already in use 127.0.0.1:8080
+    at Server.setupListenHandle [as _listen2] (node:net:2390:16)
+    at listenInCluster (node:net:2499:12)
+    at node:net:2728:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '127.0.0.1',
+  port: 8080
+}
+System.Management.Automation.RemoteException
+Node.js v24.22.3

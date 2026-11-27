@@ -1,0 +1,7 @@
+﻿Started 2026-11-27T17:49:37.7946738-06:00
+Command node docs/assignment-5/firefox-render.mjs docs/assignment-5/evidence/firefox-replay.png
+Exit code 0
+Wall seconds 1.7843978
+
+Link type: Ethernet
+Firefox rendered three replay frames on the Dashboard at 1366 x 768.

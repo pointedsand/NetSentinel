@@ -1,0 +1,54 @@
+﻿Started 2026-11-27T17:32:20.7032794-06:00
+Command ctest --test-dir backend/build/core -V
+Exit code 0
+Wall seconds 0.5935836
+
+UpdateCTestConfiguration  from :<repo>/backend/build/core/DartConfiguration.tcl
+Parse Config file:<repo>/backend/build/core/DartConfiguration.tcl
+Test project <repo>/backend/build/core
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 1
+    Start 1: FrameDecoderTests
+
+1: Test command: <repo>\backend\build\core\frame_decoder_tests.exe
+1: Working Directory: <repo>/backend/build/core
+1: Test timeout computed to be: 1500
+1/4 Test #1: FrameDecoderTests ................   Passed    0.02 sec
+test 2
+    Start 2: ProtocolParserTests
+
+2: Test command: <repo>\backend\build\core\parser_tests.exe
+2: Working Directory: <repo>/backend/build/core
+2: Test timeout computed to be: 1500
+2: PASS UT-01: TCP parsing
+2: PASS UT-02: UDP parsing
+2: PASS UT-03: Truncated frame rejected
+2: PASS UT-04: ARP network metadata, truncated body, Other transport bucket
+2: All 4 parser tests passed.
+2/4 Test #2: ProtocolParserTests ..............   Passed    0.05 sec
+test 3
+    Start 3: PacketFilteringTests
+
+3: Test command: <repo>\backend\build\core\packet_filtering_tests.exe
+3: Working Directory: <repo>/backend/build/core
+3: Test timeout computed to be: 1500
+3: All Packet Filtering tests passed!
+3/4 Test #3: PacketFilteringTests .............   Passed    0.05 sec
+test 4
+    Start 4: PacketPipelineTests
+
+4: Test command: <repo>\backend\build\core\packet_pipeline_tests.exe
+4: Working Directory: <repo>/backend/build/core
+4: Test timeout computed to be: 1500
+4: UDP length regression checks passed.
+4: All packet pipeline tests passed (including existing-behavior checks).
+4/4 Test #4: PacketPipelineTests ..............   Passed    0.02 sec
+
+100% tests passed out of 4
+
+Total Test time (real) =   0.23 sec

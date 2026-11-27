@@ -1,0 +1,9 @@
+﻿Started 2026-11-27T17:46:34.2299259-06:00
+Command $device=((& $env:NETSENTINEL_BIN --list-interfaces | Select-String 'Intel.*Ethernet Connection' | Select-Object -First 1).Line -split "`t")[0]
+$env:NETSENTINEL_SMOKE_DEVICE=$device
+node docs/assignment-5/measure-throughput.mjs
+Exit code 0
+Wall seconds 60.4607535
+
+Link type: Ethernet
+{"mode":"ambient","seconds":60.034608,"parsed":25363,"rejected":0,"delivered":9091,"outputDrops":16272,"wireBytes":19365880,"framesPerWallSecond":422.47298424935167}

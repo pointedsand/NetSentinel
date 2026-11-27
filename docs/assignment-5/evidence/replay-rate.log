@@ -1,0 +1,7 @@
+﻿Started 2026-11-27T17:46:34.2429548-06:00
+Command node docs/assignment-5/measure-throughput.mjs
+Exit code 0
+Wall seconds 1.0710496
+
+Link type: Ethernet
+{"mode":"replay","seconds":0.5876018999999999,"parsed":30000,"rejected":0,"delivered":768,"outputDrops":29232,"wireBytes":1800000,"framesPerWallSecond":51054.97446485453}

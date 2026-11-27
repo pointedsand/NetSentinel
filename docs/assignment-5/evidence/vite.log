@@ -1,0 +1,20 @@
+﻿Started 2026-11-27T17:31:17.3675531-06:00
+Command npm.cmd --prefix frontend run build
+Exit code 0
+Wall seconds 16.3195344
+
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+vite v8.3.8 building client environment for production...
+transforming...
+✓ 50 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                              0.47 kB │ gzip:  0.30 kB
+dist/assets/netsentinel-mark-ejou9SOT.png   64.34 kB
+dist/assets/index-Bg1IuLVj.css              52.98 kB │ gzip: 11.81 kB
+dist/assets/index-B65PeO6s.js              328.13 kB │ gzip: 97.48 kB
+
+✓ built in 2.10s
