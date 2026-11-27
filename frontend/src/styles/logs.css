@@ -131,3 +131,11 @@
     flex-wrap: wrap;
   }
 }
+
+.imported-log { padding: 16px 18px; min-width: 0; }
+.imported-log h2 { overflow-wrap: anywhere; color: #edf3fb; }
+.log-scroll { max-height: min(40vh, 420px); overflow: auto; }
+.log-scroll thead th { position: sticky; top: 0; z-index: 1; background: #1b2434; }
+.log-scroll .packet-table td { padding: 6px 10px; }
+.log-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 10px; }
+.log-pagination span { margin-right: auto; color: #aab7ca; font-size: 12px; }

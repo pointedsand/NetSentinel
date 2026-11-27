@@ -1,3 +1,5 @@
+import type { Capture } from '../hooks/useCapture';
+import { TrafficSummary } from './DashboardPage';
 import { useState } from 'react';
 import type { Packet } from '../types';
 import type { AlertItem } from './alertTypes';
@@ -10,7 +12,7 @@ interface TrafficSample {
 type TimeRange = '2m' | '1h' | '1d';
 
 /** Simulated overview route; the separate backend telemetry view is DashboardPage. */
-export function DashboardOverview({ packets, alerts }: { packets: Packet[]; alerts: AlertItem[] }) {
+export function DashboardOverview({ packets, alerts, capture, inspect }: { packets: Packet[]; alerts: AlertItem[]; capture?: Capture; inspect?: (id: number) => void }) {
   const [selectedTime, setSelectedTime] = useState<number>(() => packets[0]?.timestamp ?? 0);
   const [timeRange, setTimeRange] = useState<TimeRange>('2m');
 
@@ -29,24 +31,29 @@ export function DashboardOverview({ packets, alerts }: { packets: Packet[]; aler
   }
 
   // Anchor buckets to wall-clock interval boundaries so packet counts stay stable between updates.
-  const latestBucketEnd = Math.floor(now / intervalMs) * intervalMs;
+  const latestBucketEnd = (Math.floor(now / intervalMs) + (capture ? 1 : 0)) * intervalMs;
   const samples: TrafficSample[] = [];
+  const firstBucketStart = latestBucketEnd - sampleCount * intervalMs;
+  const counts = new Array<number>(sampleCount).fill(0);
+  for (const packet of packets) {
+    const index = Math.floor((packet.timestamp - firstBucketStart) / intervalMs);
+    if (index >= 0 && index < sampleCount) counts[index]++;
+  }
 
   for (let i = sampleCount - 1; i >= 0; i--) {
     const bucketEnd = latestBucketEnd - i * intervalMs;
-    const bucketStart = bucketEnd - intervalMs;
-
-    const count = packets.filter(p => p.timestamp >= bucketStart && p.timestamp < bucketEnd).length;
+    const count = counts[sampleCount - 1 - i];
     // Empty intervals use a deterministic demo baseline instead of appearing as missing data.
     const baseline = 75 + Math.floor(bucketEnd / intervalMs) % 10;
 
     samples.push({
       time: bucketEnd,
-      packets: count > 0 ? count : baseline
+      packets: count > 0 || capture ? count : baseline
     });
   }
 
-  const selectedIndex = Math.max(0, samples.findIndex((sample) => sample.time === selectedTime));
+  const selection = samples.findIndex(sample => sample.time === selectedTime);
+  const selectedIndex = selection >= 0 ? selection : capture ? samples.length - 1 : 0;
   const selectedSample = samples[selectedIndex] || samples[samples.length - 1];
 
   // Estimate display bandwidth from packet count and average packet size for the demo.
@@ -74,10 +81,10 @@ export function DashboardOverview({ packets, alerts }: { packets: Packet[]; aler
           <h1>Dashboard</h1>
           <p>At-a-glance traffic, device, and security activity.</p>
         </div>
-        <span className="demo-badge"><span aria-hidden="true" /> Home Wi-Fi Simulation Active</span>
+        <span className="demo-badge"><span aria-hidden="true" /> {capture ? (!capture.connected ? 'Disconnected' : capture.mode === '--replay' ? 'Capture file replay' : 'Live interface') : 'Home Wi-Fi Simulation Active'}</span>
       </div>
 
-      <section className="metric-grid" aria-label="Traffic summary">
+      {capture ? <TrafficSummary captureMode={capture.mode} telemetry={{ ...capture.stats, packetCount: capture.stats.packetCount + capture.stats.rejected }} /> : <section className="metric-grid" aria-label="Traffic summary">
         <article className="dashboard-card metric-card">
           <div className="card-kicker">PACKETS CAPTURED</div>
           <div className="metric-value" aria-live="polite">{(12584 + packets.length).toLocaleString()}</div>
@@ -91,14 +98,14 @@ export function DashboardOverview({ packets, alerts }: { packets: Packet[]; aler
           </div>
           <p className="metric-note">Synchronized home Wi-Fi throughput (~15 Mbps)</p>
         </article>
-      </section>
+      </section>}
 
-      <section className="dashboard-card traffic-card" aria-labelledby="traffic-title">
+      {capture && !packets.length ? <section className="dashboard-card recent-capture"><h2>Packet rate</h2><p>Waiting for captured frames.</p></section> : <section className="dashboard-card traffic-card" aria-labelledby="traffic-title">
         <div className="section-heading">
           <div>
             <div className="card-kicker">TRAFFIC ACTIVITY</div>
             <h2 id="traffic-title">Packet rate</h2>
-            <p>Packets per interval · active home Wi-Fi stream</p>
+            <p>{capture ? 'Retained packets per interval' : 'Packets per interval · active home Wi-Fi stream'}</p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -194,9 +201,23 @@ export function DashboardOverview({ packets, alerts }: { packets: Packet[]; aler
           </div>
           <span className="chart-hint">Select a chart point to inspect its data</span>
         </div>
-      </section>
+      </section>}
 
-      <section className="overview-grid" aria-label="Device and alert placeholders">
+      {capture ? <section className="dashboard-card recent-capture">
+        <h2>Recent packets</h2>
+        <label>Search packets <input type="search" className="filter-input" value={capture.query}
+          onChange={event => capture.setQuery(event.target.value)} placeholder="Name, protocol, IP or port" /></label>
+        <p>{capture.visible.length} matching · {capture.stats.retained} retained · {capture.stats.rejected} rejected during decoding</p>
+        {capture.visible.length > 0 && <div className="packet-table-container"><table className="packet-table">
+          <thead><tr><th>Packet</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Name</th></tr></thead>
+          <tbody>{capture.visible.slice(0, 5).map(packet => <tr key={packet.id}>
+            <td><button className="tool-btn" onClick={() => inspect?.(packet.id)}>{packet.id}</button></td>
+            <td>{packet.source}</td><td>{packet.destination}</td><td>{packet.protocol}</td><td>{packet.name}</td>
+          </tr>)}</tbody>
+        </table></div>}
+        <button className="tool-btn" disabled={!capture.connected || capture.running || capture.pending || !capture.stats.retained && !capture.stats.packetCount && !capture.stats.rejected}
+          onClick={() => capture.command('clear_packets')}>Clear Capture Log</button>
+      </section> : <section className="overview-grid" aria-label="Device and alert placeholders">
         <article className="dashboard-card overview-card">
           <div className="section-heading">
             <div>
@@ -246,7 +267,7 @@ export function DashboardOverview({ packets, alerts }: { packets: Packet[]; aler
             )}
           </ol>
         </article>
-      </section>
+      </section>}
     </div>
   );
 }

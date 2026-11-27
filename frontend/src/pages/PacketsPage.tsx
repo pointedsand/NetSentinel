@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { downloadFile } from '../services/browserFiles';
+import { useMemo, useRef, useState } from 'react';
 import type { Packet } from '../types';
 import { createExportFile, type ExportFormat } from './packetExport';
 
@@ -11,6 +12,7 @@ const detailLabels: Record<string,string> = {
   sizeBytes:'Original length (bytes)',capturedBytes:'Captured length (bytes)',ttlOrHopLimit:'TTL / hop limit',
   decodeStatus:'Header decode status',payloadStatus:'Payload status',icmpType:'ICMP type',arpOperation:'ARP operation',
   tcpFlags:'TCP flags',vlanIds:'VLAN IDs',ipVersion:'IP version',ipProtocol:'IP protocol number',
+  dhcpHostname:'DHCP client hostname',netbiosName:'NetBIOS responder name',netbiosTtl:'NetBIOS name lifetime (seconds)',
   etherType:'EtherType',linkType:'Link layer',application:'Application classification',dnsQuestion:'DNS question'
 };
 function detailText(key:string,value:unknown) {
@@ -27,44 +29,27 @@ const PACKET_HEADER_HEIGHT = 41;
 const PACKET_OVERSCAN = 8;
 const PACKET_VIEWPORT_HEIGHT = 600;
 
-interface SaveFilePickerOptions {
-  suggestedName: string;
-  types: Array<{
-    description: string;
-    accept: Record<string, string[]>;
-  }>;
-}
-
-interface WritableFile {
-  write(content: string): Promise<void>;
-  close(): Promise<void>;
-}
-
-interface SaveFileHandle {
-  createWritable(): Promise<WritableFile>;
-}
-
-type SaveFilePickerWindow = Window & {
-  showSaveFilePicker?: (options: SaveFilePickerOptions) => Promise<SaveFileHandle>;
-};
-
 export function PacketsPage({
   packets,
-  setPackets,
+  onClear,
   isCapturing,
   setIsCapturing,
-  onNavigateDashboard, live = false, disabled = false
+  onNavigateDashboard, live = false, disabled = false, matching, search, onSearch, initialDetail = null
 }: {
+  matching?: Packet[];
+  search?: string;
+  onSearch?: (query: string) => void;
+  initialDetail?: number | null;
   live?: boolean;
   disabled?: boolean;
   packets: Packet[];
-  setPackets: Dispatch<SetStateAction<Packet[]>>;
+  onClear: () => void;
   isCapturing: boolean;
   setIsCapturing: (val: boolean) => void;
   onNavigateDashboard: () => void;
 }) {
   const [filterText, setFilterText] = useState('');
-  const [detailId, showDetails] = useState<number | null>(null);
+  const [detailId, showDetails] = useState<number | null>(initialDetail);
   const detail = detailId === null ? undefined : packets.find(p => p.id === detailId);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(live ? 'CSV' : 'PCAP');
@@ -75,6 +60,7 @@ export function PacketsPage({
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   const filteredPackets = useMemo(() => {
+    if (matching) return matching;
     const q = filterText.toLowerCase();
     return packets.filter(p => (
       p.source.toLowerCase().includes(q) ||
@@ -82,7 +68,7 @@ export function PacketsPage({
       p.protocol.toLowerCase().includes(q) ||
       p.name.toLowerCase().includes(q)
     ));
-  }, [filterText, packets]);
+  }, [filterText, packets, matching]);
 
   // Render the visible window plus overscan; spacer rows preserve the full scroll height.
   const firstVisiblePacket = Math.max(
@@ -103,8 +89,16 @@ export function PacketsPage({
   const topSpacerHeight = visiblePacketStart * PACKET_ROW_HEIGHT;
   const bottomSpacerHeight = (filteredPackets.length - visiblePacketEnd) * PACKET_ROW_HEIGHT;
 
+  const [exportError,setExportError] = useState('');
+  // Original notes for the retired native-picker workflow:
   // Fully functional file export handler with native file location picker
-  const handleExport = async () => {
+    // Check if the browser supports the File System Access API for custom save dialogs
+        // Opens native OS save location dialog
+        // If user cancels the prompt, don't throw an error
+    // Fallback for browsers that don't support showSaveFilePicker (e.g., Firefox, Safari)
+
+  const handleExport = () => {
+    setExportError('');
     let dataToExport = packets;
     if (exportRange === 'filtered') {
       dataToExport = filteredPackets;
@@ -114,45 +108,12 @@ export function PacketsPage({
 
     const exportFile = createExportFile(dataToExport, exportFormat);
     const suggestedName = `netsentinel-capture-${Date.now()}.${exportFile.extension}`;
-    const filePickerWindow = window as SaveFilePickerWindow;
-
-    // Check if the browser supports the File System Access API for custom save dialogs
-    if (filePickerWindow.showSaveFilePicker) {
-      try {
-        const options: SaveFilePickerOptions = {
-          suggestedName,
-          types: [{
-            description: exportFile.description,
-            accept: { [exportFile.mimeType]: [`.${exportFile.extension}`] },
-          }],
-        };
-
-        // Opens native OS save location dialog
-        const handle = await filePickerWindow.showSaveFilePicker(options);
-        const writableStream = await handle.createWritable();
-        await writableStream.write(exportFile.content);
-        await writableStream.close();
-
-        setShowExportModal(false);
-        return;
-      } catch (error) {
-        // If user cancels the prompt, don't throw an error
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.warn('File picker failed or was denied, falling back to standard download.', error);
-      }
+    try {
+      downloadFile(suggestedName, exportFile.content, exportFile.mimeType);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Unable to download export.');
+      return;
     }
-
-    // Fallback for browsers that don't support showSaveFilePicker (e.g., Firefox, Safari)
-    const blob = new Blob([exportFile.content], { type: exportFile.mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = suggestedName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
     setShowExportModal(false);
   };
 
@@ -161,7 +122,7 @@ export function PacketsPage({
       <div className="capture-header-bar">
         <button onClick={onNavigateDashboard} className="back-link">&lt; Dashboard</button>
         <h2>Live Packet Capture</h2>
-        <span className="time-display">{new Date().toLocaleTimeString()} CST</span>
+        <span className="time-display">{new Date().toLocaleTimeString(undefined, { timeZoneName: 'short' })}</span>
       </div>
 
       <div className="capture-toolbar">
@@ -177,10 +138,10 @@ export function PacketsPage({
             <span>Filter:</span>
             <input
               type="text"
-              placeholder="Filter by name, protocol, or IP..."
-              value={filterText}
+              placeholder={live ? "Filter by name, protocol, IP or port..." : "Filter by name, protocol, or IP..."}
+              value={search ?? filterText}
               onChange={(e) => {
-                setFilterText(e.target.value);
+                (onSearch ?? setFilterText)(e.target.value);
                 if (tableContainerRef.current) {
                   tableContainerRef.current.scrollTop = 0;
                 }
@@ -199,7 +160,7 @@ export function PacketsPage({
           <button onClick={() => setShowExportModal(true)} className="tool-btn">Export</button>
           <button
             disabled={live && (isCapturing || disabled)}
-            onClick={() => { showDetails(null); setPackets([]); }}
+            onClick={() => { showDetails(null); setSelectedPacketIds([]); onClear(); }}
             className="tool-btn"
             style={{
               backgroundColor: 'rgba(239, 68, 68, 0.16)',
@@ -292,7 +253,7 @@ export function PacketsPage({
         </table>
       </div>
 
-      {live && detail?.details && <section className="dashboard-card" aria-label="Packet details">
+      {live && detail?.details && <section className="dashboard-card packet-details" aria-label="Packet details">
         <button onClick={() => showDetails(null)}>Close details</button>
         <h3>Packet {detail.id} · {detail.protocol}</h3>
         <dl>{Object.entries(detail.details).filter(([,v]) => v != null && v !== '' &&
@@ -357,6 +318,7 @@ export function PacketsPage({
               </div>
             </div>
 
+            {exportError && <p role="alert">{exportError}</p>}
             <div className="modal-footer">
               <button onClick={() => setShowExportModal(false)} className="btn-cancel">Cancel</button>
               <button

@@ -20,6 +20,7 @@ struct TrafficTotals {
     uint64_t rejected = 0;
     uint64_t filtered = 0;
     uint64_t output_drops = 0;
+    uint64_t wire_bytes = 0;
 
     double megabits_per_second(double elapsed_seconds) const {
         return elapsed_seconds > 0 ? parsed.total_bytes * 8e-6 / elapsed_seconds : 0;

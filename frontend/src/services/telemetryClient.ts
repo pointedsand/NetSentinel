@@ -8,6 +8,7 @@
 export interface TelemetryMessage {
   packetCount: number;
   bandwidthMbps: number;
+  rollingMbps?: number;
   activeConnections: number;
   /** Optional capture state reported by the backend. */
   captureState?: 'RUNNING' | 'PAUSED';

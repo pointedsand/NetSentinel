@@ -268,3 +268,44 @@
     min-width: 0;
   }
 }
+
+.capture-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.capture-controls p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.capture-controls label,
+.recent-capture label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.capture-controls select {
+  min-width: 0;
+  max-width: min(50vw, 32rem);
+}
+
+.capture-controls [role="alert"] { color: #fca5a5; }
+
+.recent-capture,
+.packet-details { padding: 18px; }
+
+.packet-details dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 12px;
+}
+
+.packet-details dt { color: #a9b8cb; }
+.packet-details dd { margin: 4px 0 0; overflow-wrap: anywhere; }

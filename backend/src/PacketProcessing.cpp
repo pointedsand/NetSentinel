@@ -21,6 +21,7 @@ void RecentFlows::observe(const ParsedPacket& packet) {
 PacketDecision process_frame(const uint8_t* bytes, size_t captured, uint32_t original,
                              const PacketFilter& filter, TrafficTotals& totals, ParsedPacket& packet,
                              bool retain_invalid) {
+    totals.wire_bytes += original;
     auto decoded = inspect_frame(bytes,captured,original);
     if (decoded.details.status == "truncated" || decoded.details.status == "malformed") {
         if (retain_invalid) packet = std::move(decoded);
