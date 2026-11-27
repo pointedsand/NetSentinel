@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-enum class Protocol { TCP, UDP, ICMP, OTHER };
+#include "backend/include/ParsedPacket.hpp"
 
 struct Packet {
     std::string source_ip;
@@ -17,7 +17,7 @@ struct Packet {
     std::optional<uint16_t> source_port;       // empty for ICMP / unknown
     std::optional<uint16_t> destination_port;
     uint32_t packet_size = 0;                  // bytes
-    Protocol protocol = Protocol::OTHER;
+    Protocol protocol = Protocol::Other;
 };
 
 // Stats for one direction of traffic (e.g. A -> B)
@@ -53,6 +53,8 @@ struct FlowStats {
 FlowStats analyze_packets(const std::vector<Packet>& packets,
                           const std::string& ip_a,
                           const std::string& ip_b);
+
+FlowStats analyze_packets(const std::vector<ParsedPacket>& packets, const std::string& a, const std::string& b);
 
 const char* to_string(Protocol p);
 
