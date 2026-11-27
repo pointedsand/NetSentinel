@@ -1,5 +1,6 @@
 /** A packet record in the browser-side simulation and packet table. */
 export interface Packet {
+  details?: object;
   id: number;
   source: string;
   destination: string;

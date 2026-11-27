@@ -10,6 +10,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { createSeedAlerts, DEFAULT_ALERT_RULES } from './pages/alertTypes';
 import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
+import { LiveWorkspace } from './pages/LiveWorkspace';
 
 type PageId = 'dashboard' | 'packets' | 'devices' | 'alerts' | 'logs' | 'settings';
 
@@ -56,6 +57,14 @@ function AppShell({ children, activePage, setActivePage }: { children: ReactNode
 }
 
 export function App() {
+  const [live, setLive] = useState(() => new URLSearchParams(location.search).get('mode') === 'live');
+  return live ? <LiveWorkspace onDemo={() => setLive(false)} /> : <>
+    <button className="tool-btn" onClick={() => setLive(true)}>Connect to live backend</button>
+    <DemoApp />
+  </>;
+}
+
+function DemoApp() {
   // Shared state stays above page selection so navigation does not reset cross-page data.
   const [activePage, setActivePage] = useState<PageId>('dashboard');
   const [alerts, setAlerts] = useState<AlertItem[]>(() => createSeedAlerts());

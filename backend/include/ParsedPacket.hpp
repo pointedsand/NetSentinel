@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FrameDetails.hpp"
 #include <string>
 #include <optional>
 #include <cstdint>
@@ -8,7 +9,8 @@ enum class Protocol {
     TCP,
     UDP,
     ICMP,
-    Other
+    Other,
+    OTHER = Other
 };
 
 struct ParsedPacket {
@@ -21,4 +23,5 @@ struct ParsedPacket {
     std::optional<uint16_t> destination_port;
 
     uint32_t packet_size;
+    FrameDetails details{};
 };

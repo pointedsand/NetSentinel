@@ -1,5 +1,6 @@
 #include "PacketFiltering.hpp"
 #include "ProtocolParser.hpp"
+#include "PacketProcessing.hpp"
 #include <cassert>
 #include <cstdint>
 #include <iostream>
@@ -144,16 +145,37 @@ namespace {
             frame[38] = static_cast<uint8_t>(udp_length >> 8);
             frame[39] = static_cast<uint8_t>(udp_length);
             ParsedPacket packet{};
-            assert(parse_packet(frame.data(), frame.size(), frame.size(), packet));
-            FilterConfig config;
-            config.destination_port = 53;
-            assert(PacketFilter(config).matches(packet));
+            expect_rejected(frame.data(), frame.size(), frame.size());
+            if (udp_length > 8) {
+                frame[20] = 0x20;
+                assert(parse_packet(frame.data(), frame.size(), frame.size(), packet));
+                assert(packet.destination_port == 53);
+            }
         }
-        std::cout << "KNOWN GAP: inconsistent UDP lengths currently reach filtering.\n";
+        std::cout << "UDP length regression checks passed.\n";
     }
 }
 
 int main() {
+    TrafficTotals totals;
+    FilterConfig config;
+    config.protocol = Protocol::UDP;
+    PacketFilter filter(config);
+    ParsedPacket packet{};
+    auto tcp = tcp_frame();
+    auto udp = udp_frame();
+    assert(process_frame(tcp.data(), tcp.size(), 60, filter, totals, packet) == PacketDecision::Hidden);
+    assert(process_frame(udp.data(), udp.size(), 60, filter, totals, packet) == PacketDecision::Display);
+    assert(process_frame(nullptr, 0, 0, filter, totals, packet) == PacketDecision::Invalid);
+    assert(totals.parsed.packet_count == 2 && totals.parsed.total_bytes == 120);
+    assert(totals.protocols[0] == 1 && totals.protocols[1] == 1);
+    assert(totals.rejected == 1 && totals.filtered == 1);
+    assert(totals.megabits_per_second(2) > 0.000479 && totals.megabits_per_second(2) < 0.000481);
+    auto reverse = packet;
+    std::swap(reverse.source_ip, reverse.destination_ip);
+    auto pair = analyze_packets(std::vector<ParsedPacket>{packet, reverse}, packet.source_ip, packet.destination_ip);
+    assert(pair.a_to_b.packet_count == 1 && pair.b_to_a.packet_count == 1);
+    assert(pair.total_bytes() == 120 && pair.protocol_counts[1] == 2);
     test_valid_packets_and_filters();
     test_malformed_packets();
     test_truncated_packets();
