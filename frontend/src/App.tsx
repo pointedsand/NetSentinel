@@ -12,6 +12,7 @@ import { AuthPage } from './pages/AuthPage';
 import { createSeedAlerts, DEFAULT_ALERT_RULES } from './pages/alertTypes';
 import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
+import { LiveWorkspace } from './pages/LiveWorkspace';
 
 type PageId = 'dashboard' | 'packets' | 'devices' | 'alerts' | 'logs' | 'settings';
 

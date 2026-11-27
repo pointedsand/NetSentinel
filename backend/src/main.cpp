@@ -1,4 +1,5 @@
 #include "NetworkInterface.hpp"
+#include "Telemetry.hpp"
 #include "PacketCapture.hpp"
 #include <iostream>
 #include <vector>
@@ -38,7 +39,8 @@ void print_packets(const std::vector<ParsedPacket>& packets) {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc > 1) return stream_capture(argc, argv);
     std:: string device_name = select_network_interface();
 
     if (device_name.empty()) {

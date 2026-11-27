@@ -1,6 +1,7 @@
-#include "NetworkInterface.hpp"
+ #include "NetworkInterface.hpp"
 #include <pcap.h>
 #include <iostream>
+#include <memory>
 
 
 /* 
@@ -52,6 +53,7 @@ std::string select_network_interface() {
         return "";
     }
 
+    std::unique_ptr<pcap_if_t, decltype(&pcap_freealldevs)> owner(interfaces, pcap_freealldevs);
     int count = 0;
     for (pcap_if_t* current = interfaces; current != nullptr; current = current->next) {
         std::cout << "[" << count << "] ";
@@ -68,7 +70,6 @@ std::string select_network_interface() {
 
     if(count == 0) {
         std::cerr << "No network interfaces found.\n";
-        pcap_freealldevs(interfaces);
         return "";
     }
 
@@ -78,7 +79,6 @@ std::string select_network_interface() {
 
     if(!(std::cin >> selection) || selection < 0 || selection >= count) {
         std::cerr << "Invalid selection.\n";
-        pcap_freealldevs(interfaces);
         return "";
     }
 
@@ -88,7 +88,6 @@ std::string select_network_interface() {
     }
 
     std::string device_name = curr->name;
-    pcap_freealldevs(interfaces);
 
     return device_name;
 }

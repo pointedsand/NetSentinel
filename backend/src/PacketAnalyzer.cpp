@@ -1,10 +1,11 @@
-#include "packet_analyzer.h"
+#include "packet_analyzer.hpp"
 
-FlowStats analyze_packets(const std::vector<Packet>& packets,
+template<class T>
+static FlowStats analyze_pair(const std::vector<T>& packets,
                           const std::string& ip_a,
                           const std::string& ip_b) {
     FlowStats stats;
-    for (const Packet& p : packets) {
+    for (const auto& p : packets) {
         if (p.source_ip == ip_a && p.destination_ip == ip_b) {
             stats.a_to_b.add(p.packet_size);
         } else if (p.source_ip == ip_b && p.destination_ip == ip_a) {
@@ -17,6 +18,14 @@ FlowStats analyze_packets(const std::vector<Packet>& packets,
     return stats;
 }
 
+FlowStats analyze_packets(const std::vector<Packet>& packets, const std::string& a, const std::string& b) {
+    return analyze_pair(packets, a, b);
+}
+
+FlowStats analyze_packets(const std::vector<ParsedPacket>& packets, const std::string& a, const std::string& b) {
+    return analyze_pair(packets, a, b);
+}
+
 const char* to_string(Protocol p) {
     switch (p) {
         case Protocol::TCP:  return "TCP";
@@ -25,3 +34,4 @@ const char* to_string(Protocol p) {
         default:             return "OTHER";
     }
 }
+    

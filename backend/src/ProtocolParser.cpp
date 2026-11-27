@@ -33,7 +33,7 @@ parse_packet() TODO
     there needs to be some parallel work so that packets can be parsed and printed while they are also being captured 
 
 */
-bool parse_packet(const uint8_t* data, size_t captured_size, uint32_t original_size, ParsedPacket& output) {
+bool parser_detail::parse_ipv4_ethernet(const uint8_t* data, size_t captured_size, uint32_t original_size, ParsedPacket& output) {
     constexpr size_t ethernet_size = 14;
     
     if (data == nullptr || captured_size < ethernet_size) {
@@ -47,9 +47,7 @@ bool parse_packet(const uint8_t* data, size_t captured_size, uint32_t original_s
     //ethernet II takes up bytes 12 and 13
     uint16_t ether_type = read_u16(data + 12);
 
-    std::cout << "EtherType: 0x"
-          << std::hex << ether_type
-          << std::dec << '\n';
+
 
     //WIP: NON-IPV4 FRAMES ARE 'OTHER' --- ADD FUNCTIONALITY AND PROPER CLASSIFICATION LATER
     if(ether_type != 0x0800) {
@@ -115,6 +113,11 @@ bool parse_packet(const uint8_t* data, size_t captured_size, uint32_t original_s
                         return false;
                     }
 
+                    const size_t udp_length = read_u16(data + transport + 4);
+                    const bool more_fragments = (read_u16(data + ip + 6) & 0x2000) != 0;
+                    if (udp_length < 8 || (!more_fragments && udp_length > transport_size)) {
+                        return false;
+                    }
                     result.source_port = read_u16(data + transport);
                     result.destination_port = read_u16(data + transport + 2);
                 }
@@ -132,5 +135,15 @@ bool parse_packet(const uint8_t* data, size_t captured_size, uint32_t original_s
     }
 
     output = result;
+    return true;
+}
+
+bool parse_packet(const uint8_t* data, size_t captured_size, uint32_t original_size, ParsedPacket& output) {
+    auto decoded = inspect_frame(data,captured_size,original_size);
+    // Legacy callers use a bare Ethernet header to classify ARP. Keep the detailed failure status.
+    const bool header_only_arp = captured_size == 14 && decoded.details.ether_type == 0x0806;
+    if (!header_only_arp && (decoded.details.status == "malformed" || decoded.details.status == "truncated"))
+        return false;
+    output = std::move(decoded);
     return true;
 }

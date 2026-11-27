@@ -123,23 +123,7 @@ function DashboardPage({ client = defaultClient }: { client?: TelemetryClient })
       )}
       {!connected && <div className="idle-warning" role="status">Backend disconnected · capture idle</div>}
 
-      <section className="metric-grid" aria-label="Traffic summary">
-        <article className="dashboard-card metric-card">
-          <div className="card-kicker">PACKETS CAPTURED</div>
-          <div className="metric-value" aria-live="polite" data-testid="packet-count">{telemetry.packetCount.toLocaleString()}</div>
-          <p className="metric-note">Live count from backend telemetry</p>
-        </article>
-        <article className="dashboard-card metric-card">
-          <div className="card-kicker">BANDWIDTH</div>
-          <div className="metric-value" data-testid="bandwidth">{telemetry.bandwidthMbps.toFixed(1)} <span>Mbps</span></div>
-          <p className="metric-note">Live bandwidth from backend telemetry</p>
-        </article>
-        <article className="dashboard-card metric-card">
-          <div className="card-kicker">ACTIVE CONNECTIONS</div>
-          <div className="metric-value" data-testid="active-connections">{telemetry.activeConnections.toLocaleString()}</div>
-          <p className="metric-note">Live connections from backend telemetry</p>
-        </article>
-      </section>
+      <TrafficSummary telemetry={telemetry} />
 
       <section className="dashboard-card traffic-card" aria-labelledby="traffic-title">
         <div className="section-heading">
@@ -278,6 +262,28 @@ function DashboardPage({ client = defaultClient }: { client?: TelemetryClient })
         </article>
       </section>
     </div>
+  );
+}
+
+export function TrafficSummary({ telemetry }: { telemetry: TelemetryMessage }) {
+  return (
+      <section className="metric-grid" aria-label="Traffic summary">
+        <article className="dashboard-card metric-card">
+          <div className="card-kicker">PACKETS CAPTURED</div>
+          <div className="metric-value" aria-live="polite" data-testid="packet-count">{telemetry.packetCount.toLocaleString()}</div>
+          <p className="metric-note">Live count from backend telemetry</p>
+        </article>
+        <article className="dashboard-card metric-card">
+          <div className="card-kicker">BANDWIDTH</div>
+          <div className="metric-value" data-testid="bandwidth">{telemetry.bandwidthMbps.toFixed(1)} <span>Mbps</span></div>
+          <p className="metric-note">Live bandwidth from backend telemetry</p>
+        </article>
+        <article className="dashboard-card metric-card">
+          <div className="card-kicker">ACTIVE CONNECTIONS</div>
+          <div className="metric-value" data-testid="active-connections">{telemetry.activeConnections.toLocaleString()}</div>
+          <p className="metric-note">Live connections from backend telemetry</p>
+        </article>
+      </section>
   );
 }
 

@@ -1,0 +1,19 @@
+# Backend implementation progress
+
+Branch based on parser/filter integration f3fe1f4. Windows UCRT64 baseline: all three CTest suites passed in core Release and capture Debug.
+
+1. Statistics: integrated DirectionStats and canonical Protocol into a synchronous parse/count/filter function. Rejected frames are counted separately; Other contributes to the protocol histogram. Both builds and all suites passed.
+
+2–3. Capture: live and offline sources share the Ethernet guard and statistics/filter path. The owner uses RAII and nonblocking live reads with a stop flag and a 10 ms idle sleep. UDP invalid lengths are rejected; fragmented datagrams retain valid port decoding. Both builds and three tests passed after each change.
+4. Optional asynchronous PTR enrichment lives in the backend transport process. Bounded pending set, concurrency, cache and cancellable lookups. Controlled Node resolver test passed without DNS traffic.
+5. Loopback WebSocket service launches a C++ capture child. A bounded mailbox decouples capture from the pipe writer. Operator-selected source, start/stop, startup display filters and optional PTR labels are supported. See service/README.md for schemas and build/run commands.
+
+6. Windows validation: core Release 3/3; capture Debug 4/4; Node 4/4. Tests cover stop/reopen, sink drops, Ethernet replay including filtered and malformed frames, unsupported Radiotap input, and conservation of records across a 10,000-packet burst. Linux, a live physical adapter, real DNS and the React UI still require smoke tests. The driver drop counter and retroactive hostname updates are not available. No remote Git operations.
+Windows follow-up: two 1.5 s passive Ethernet sessions returned protocol counts TCP/UDP/ICMP/Other of 258/1/0/154 and 39/0/0/143, both with zero mailbox drops. Two disconnected Wi-Fi sessions returned zero packets and shut down. Edge started and stopped live Ethernet twice. Production React replay verified aggregate count, source labels, packet rows, text filtering and session protocol filtering.
+
+Review: borrowed pcap bytes are decoded before the next read. A single writer owns totals; mailbox state is copied under lock before stdout writes. ParsedPacket fields and protocol ordinals are preserved (OTHER aliases Other). Fixed the final-state/restart race by publishing PAUSED after child close, with idempotent stop and a three-second termination fallback. Checked existing comment text in the changed sources against HEAD. No sanitizer or Linux execution.
+
+Final checks: CTest 3/3 core and 4/4 capture; Node 5/5; frontend 36/36; production TypeScript/Vite build and Edge replay passed. Frontend lint reports two existing Fast Refresh errors in SettingsPage.tsx at lines 18 and 29. DNS was verified with a controlled resolver; live smoke used DNS disabled.
+History and decoding milestone: Start/Stop/Start, display-filter changes, reconnect, stable packet IDs, per-source attribution, packet details and explicit clearing verified in Edge replay. Retention is 4096 metadata records; history eviction and capture-mailbox loss have separate counters. Clear is available while stopped.
+
+Live investigation: two 1.5-second Ethernet sessions yielded 315 60-byte ARP requests (0x0806, opcode 1), 56 60-byte frames with unsupported EtherType 0x8899, and 14 60-byte IPv4 frames. No mailbox drops. Additional decoders cover VLAN, IPv6 extension chains, ARP, LLDP, IGMP, TCP/UDP and ICMP. DNS/SNI tests use synthetic traffic; IPv6 PTR uses a controlled resolver. The initial integration regression overwriting output on parse failure was fixed. Final Windows results: core CTest 4/4, Npcap CTest 5/5, Node 8/8, React 36/36, production build and browser replay passed. Linux and sanitizers unverified. Lint retains the two previously recorded SettingsPage Fast Refresh errors.
