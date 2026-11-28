@@ -84,3 +84,23 @@ it('restores acknowledged pages newest first and applies capacity changes withou
   expect(result.current.visible.map(p=>p.id)).toEqual([2]);
   expect(result.current.stats).toMatchObject({packetCount:12,outputDrops:8,historyCapacity:5000});
 });
+
+it('only warns about new mailbox losses and preserves totals across resize and stop',()=>{
+  vi.useFakeTimers();
+  try {
+    vi.stubGlobal('WebSocket',TestSocket);
+    const {result}=renderHook(useCapture);
+    const socket=TestSocket.current;
+    socket.deliver({...batch,historyPage:true,offset:0,nextOffset:null,outputDrops:178});
+    expect(result.current.recentDrops).toBe(0);
+    socket.deliver({...batch,captureState:'RUNNING',outputDrops:181});
+    expect(result.current.recentDrops).toBe(3);
+    socket.deliver({type:'history_limit',historyCapacity:5000,retained:0,evicted:25000});
+    socket.deliver({...batch,outputDrops:181});
+    act(()=>vi.advanceTimersByTime(5001));
+    expect(result.current.recentDrops).toBe(0);
+    expect(result.current.stats.outputDrops).toBe(181);
+    socket.deliver({...batch,historyPage:true,offset:0,outputDrops:0});
+    expect(result.current.stats.outputDrops).toBe(0);
+  } finally {vi.useRealTimers();}
+});

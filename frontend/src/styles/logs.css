@@ -139,3 +139,7 @@
 .log-scroll .packet-table td { padding: 6px 10px; }
 .log-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 10px; }
 .log-pagination span { margin-right: auto; color: #aab7ca; font-size: 12px; }
+
+.logs-view { grid-template-columns: minmax(0, 1fr); }
+.logs-view > .dashboard-card { min-width: 0; }
+.logs-view .logs-management-toolbar { flex-wrap: wrap; }

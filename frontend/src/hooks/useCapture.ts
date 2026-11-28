@@ -47,6 +47,7 @@ export function useCapture(showMonitor = false, showAlerts = false) {
   const [query, setQuery] = useState('');
   const [activeDns, setDns] = useState(false);
   const [historyOptions,setHistoryOptions] = useState<{limit:number; label:string}[]>([]);
+  const [recentDrops,setRecentDrops] = useState(0);
   const [stats, update] = useState(empty);
   const [packets, setPackets] = useState<Packet[]>([]);
   const visible = useMemo(() => {
@@ -68,7 +69,9 @@ export function useCapture(showMonitor = false, showAlerts = false) {
   const [mode, setMode] = useState<CaptureMode>();
   useEffect(() => {
     let closed = false, timer: ReturnType<typeof setTimeout>;
+    let dropTimer: ReturnType<typeof setTimeout>;
     function open() {
+      let lastDrops = 0;
       const port = location.protocol === 'netsentinel:'
         ? document.querySelector<HTMLMetaElement>('meta[name="bridge-port"]')?.content
         : '8080';
@@ -124,6 +127,15 @@ export function useCapture(showMonitor = false, showAlerts = false) {
           }
           if (data.type === 'error') { fail(data.message); wait(false); return; }
           if (data.type !== 'batch' || !Array.isArray(data.packets)) return;
+          if (data.historyPage || data.outputDrops < lastDrops) {
+            clearTimeout(dropTimer);
+            setRecentDrops(0);
+          } else if (data.outputDrops > lastDrops) {
+            setRecentDrops(data.outputDrops-lastDrops);
+            clearTimeout(dropTimer);
+            dropTimer = setTimeout(()=>setRecentDrops(0),5000);
+          }
+          lastDrops = data.outputDrops;
           const rows = data.packets.map(packetRow);
           if (data.historyPage) {
             if (data.offset === 0) restored = [];
@@ -154,13 +166,14 @@ export function useCapture(showMonitor = false, showAlerts = false) {
       };
       ws.onclose = event => {
         if (closed) return;
+        clearTimeout(dropTimer); setRecentDrops(0);
         reset(); connect(false); run(false); wait(false); list([]);
         if (event.reason) fail(event.reason);
         timer = setTimeout(open, 1200);
       };
     }
     open();
-    return () => { closed = true; clearTimeout(timer); socket.current?.close(); };
+    return () => { closed = true; clearTimeout(timer); clearTimeout(dropTimer); socket.current?.close(); };
   }, [receive,reset]);
 
   useEffect(() => {
@@ -175,11 +188,12 @@ export function useCapture(showMonitor = false, showAlerts = false) {
     if (pending) return;
 
     if (command(start ? 'start_capture' : 'stop_capture')) {
+      if (start) setRecentDrops(0);
       stopping.current = !start;
       wait(true);
       fail('');
     }
   }
-  return { admin, historyOptions, monitor, eventFilter, setEventFilter, packetEvent, setPacketEvent, deviceFilter, setDeviceFilter, packetDevice, setPacketDevice, sourceIds, sourceNames, eventOffset, setEventOffset, offset, setOffset, connected, running, pending, error, sources, selected, protocol, setProtocol, activeDns, stats, packets, visible, query, setQuery, mode, command, capture };
+  return { admin, recentDrops, historyOptions, monitor, eventFilter, setEventFilter, packetEvent, setPacketEvent, deviceFilter, setDeviceFilter, packetDevice, setPacketDevice, sourceIds, sourceNames, eventOffset, setEventOffset, offset, setOffset, connected, running, pending, error, sources, selected, protocol, setProtocol, activeDns, stats, packets, visible, query, setQuery, mode, command, capture };
 }
 export type Capture = ReturnType<typeof useCapture>;

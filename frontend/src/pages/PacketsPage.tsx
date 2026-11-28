@@ -1,3 +1,4 @@
+import { saveArchive } from '../services/archives';
 import { downloadFile } from '../services/browserFiles';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Packet } from '../types';
@@ -57,7 +58,7 @@ export function PacketsPage({
   const [exportFormat, setExportFormat] = useState<ExportFormat>(live ? 'CSV' : 'PCAP');
   const [exportRange, setExportRange] = useState('all');
   const [selectedPacketIds, setSelectedPacketIds] = useState<number[]>([]);
-  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const [position,setPosition] = useState({top:0, id:0, inset:0});
   const [tableViewportHeight, setTableViewportHeight] = useState(PACKET_VIEWPORT_HEIGHT);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -73,18 +74,36 @@ export function PacketsPage({
     ));
   }, [filterText, packets, matching]);
 
-  const previousHeads = useRef<{all?:number; filtered?:number}>({});
-  useLayoutEffect(() => {
-    const container = tableContainerRef.current;
-    const head = filteredPackets[0]?.id;
-    const {all,filtered:oldHead} = previousHeads.current;
-    previousHeads.current = {all:packets[0]?.id,filtered:head};
-    if (all === packets[0]?.id) return;
-    if (!live || !container || container.scrollTop < PACKET_ROW_HEIGHT || oldHead == null || head == null || head <= oldHead) return;
+  const tableScrollTop = useMemo(() => {
     // IDs increase at capture time. Keep the same packet under the pointer as new rows arrive.
-    const inserted = filteredPackets.findIndex(row => row.id === oldHead);
-    if (inserted > 0) container.scrollTop += inserted * PACKET_ROW_HEIGHT;
-  }, [packets,filteredPackets,live]);
+    if (!live || !position.id || !filteredPackets.length) return position.top;
+    let low = 0, high = filteredPackets.length;
+    while (low < high) {
+      const mid = Math.floor((low+high)/2);
+      if (filteredPackets[mid].id > position.id) low = mid+1;
+      else high = mid;
+    }
+    const target = Math.min(low,filteredPackets.length-1)*PACKET_ROW_HEIGHT + position.inset;
+    const bottom = PACKET_HEADER_HEIGHT + filteredPackets.length*PACKET_ROW_HEIGHT - tableViewportHeight;
+    return Math.min(target,Math.max(0,bottom));
+  },[filteredPackets,live,position,tableViewportHeight]);
+  useLayoutEffect(() => {
+    const box = tableContainerRef.current;
+    if (!box || typeof ResizeObserver==='undefined') return;
+    const observer = new ResizeObserver(()=>{
+      if (box.clientHeight) setTableViewportHeight(box.clientHeight);
+    });
+    observer.observe(box);
+    return ()=>observer.disconnect();
+  },[]);
+  useLayoutEffect(() => {
+    const box = tableContainerRef.current;
+    if (live && box && Math.abs(box.scrollTop-tableScrollTop) >= 1) box.scrollTop = tableScrollTop;
+  },[live,tableScrollTop]);
+  function jumpToNewest() {
+    if (tableContainerRef.current) tableContainerRef.current.scrollTop = 0;
+    setPosition({top:0,id:0,inset:0});
+  }
 
   const oldest = packets.at(-1)?.id;
   const selected = useMemo(() => new Set(selectedPacketIds.filter(id => oldest != null && (!live || id >= oldest))),
@@ -117,7 +136,11 @@ export function PacketsPage({
         // If user cancels the prompt, don't throw an error
     // Fallback for browsers that don't support showSaveFilePicker (e.g., Firefox, Safari)
 
-  const handleExport = () => {
+  const desktopArchive = live ? window.netSentinelArchives : undefined;
+  const [saving,setSaving] = useState(false);
+  const [savedName,setSavedName] = useState('');
+  const handleExport = async () => {
+    if (saving) return;
     setExportError('');
     let dataToExport = packets;
     if (exportRange === 'filtered') {
@@ -126,6 +149,15 @@ export function PacketsPage({
       dataToExport = packets.filter(p => selected.has(p.id));
     }
 
+    if (desktopArchive && exportFormat!=='PCAP') {
+      setSaving(true);
+      try {
+        setSavedName(await saveArchive(desktopArchive,exportFormat,dataToExport));
+        setShowExportModal(false);
+      } catch (error) { setExportError((error as Error).message); }
+      finally { setSaving(false); }
+      return;
+    }
     const exportFile = createExportFile(dataToExport, exportFormat);
     const suggestedName = `netsentinel-capture-${Date.now()}.${exportFile.extension}`;
     try {
@@ -155,16 +187,14 @@ export function PacketsPage({
               value={search ?? filterText}
               onChange={(e) => {
                 (onSearch ?? setFilterText)(e.target.value);
-                if (tableContainerRef.current) {
-                  tableContainerRef.current.scrollTop = 0;
-                }
-                setTableScrollTop(0);
+                jumpToNewest();
               }}
               className="filter-input"
             />
           </div>
         </div>
 
+        {live && position.top > 0 && <button className="tool-btn" onClick={jumpToNewest}>Jump to newest</button>}
         {!live && <div className="toolbar-right">
           <span className="packet-counter">Captured: <strong>{packets.length.toLocaleString()}</strong></span>
         </div>}
@@ -174,7 +204,9 @@ export function PacketsPage({
         ref={tableContainerRef}
         className="packet-table-container packet-virtualized-container"
         onScroll={(event) => {
-          setTableScrollTop(event.currentTarget.scrollTop);
+          const top = event.currentTarget.scrollTop;
+          const index = Math.floor(top/PACKET_ROW_HEIGHT);
+          setPosition({top,id:top > 0 ? filteredPackets[index]?.id ?? 0 : 0,inset:top % PACKET_ROW_HEIGHT});
           setTableViewportHeight(event.currentTarget.clientHeight || PACKET_VIEWPORT_HEIGHT);
         }}
       >
@@ -282,12 +314,13 @@ export function PacketsPage({
           <div key={key}><dt>{detailLabels[key]}</dt><dd>{detailText(key,value)}</dd></div>)}</dl>
       </section>}
       </aside>
+      {savedName && <small role="status">Saved to Logs · {savedName}</small>}
       {showExportModal && (
         <div className="modal-overlay">
           <div className="modal-box">
             <div className="modal-header">
               <h3>Export Packet Logs</h3>
-              <button onClick={() => setShowExportModal(false)} className="modal-close">✕</button>
+              <button disabled={saving} onClick={() => setShowExportModal(false)} className="modal-close">✕</button>
             </div>
 
             <div className="modal-body">
@@ -342,12 +375,12 @@ export function PacketsPage({
 
             {exportError && <p role="alert">{exportError}</p>}
             <div className="modal-footer">
-              <button onClick={() => setShowExportModal(false)} className="btn-cancel">Cancel</button>
+              <button disabled={saving} onClick={() => setShowExportModal(false)} className="btn-cancel">Cancel</button>
               <button
-                onClick={handleExport}
+                disabled={saving} onClick={handleExport}
                 className="btn-export"
               >
-                Download Export
+                {desktopArchive ? (saving ? 'Saving…' : 'Save archive') : 'Download Export'}
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, nativeTheme, protocol, screen, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, nativeTheme, protocol, screen, session } from 'electron';
 import { execFile } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { once } from 'node:events';
@@ -8,11 +8,13 @@ import { serve } from '../backend/service/server.mjs';
 import { Monitor } from '../backend/service/monitor.mjs';
 import { defaultStateFile, openHistoryPreferences, openStore } from '../backend/service/monitor-store.mjs';
 import { origin, renderer } from './renderer.mjs';
+import { archiveStore, registerArchives } from './archives.mjs';
 import { initialWindowBounds } from './window-bounds.mjs';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'netsentinel',
   privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
+const archives = archiveStore(()=>app.getPath('documents'),path=>shell.openPath(path));
 let window, bridge, startup, closing, closed = false;
 const run = promisify(execFile);
 
@@ -57,8 +59,12 @@ async function start() {
     icon: join(app.isPackaged ? process.resourcesPath : join(root, 'desktop'), 'netsentinel.ico'),
     accentColor: nativeTheme.shouldUseHighContrastColors ? undefined : '#101925',
     title: 'NetSentinel', backgroundColor: '#0c131d', autoHideMenuBar: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+    webPreferences: { preload:join(root,'desktop/preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
       webviewTag: false } });
+  registerArchives(ipcMain,archives,()=>window,origin);
+  window.webContents.on('did-start-navigation',details=>{
+    if (details.isMainFrame && !details.isSameDocument) void archives.reset().catch(console.error);
+  });
   window.removeMenu();
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => { if (url !== origin + '/') event.preventDefault(); });
@@ -79,7 +85,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', event => {
     if (closed) return;
     event.preventDefault();
-    closing ??= Promise.resolve(startup).then(() => bridge?.close()).finally(() => {
+    closing ??= Promise.resolve(startup).then(() => Promise.all([bridge?.close(),archives.reset()])).finally(() => {
       closed = true;
       app.quit();
     });

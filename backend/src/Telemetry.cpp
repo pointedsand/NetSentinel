@@ -1,5 +1,6 @@
 #include "Telemetry.hpp"
 #include "PacketCapture.hpp"
+#include <algorithm>
 #include <charconv>
 #include <cstdlib>
 #include <string_view>
@@ -151,6 +152,8 @@ int stream_capture(int argc, char** argv) {
     try { cfg = read_filter(argv); capacity = buffer_capacity(); }
     catch (const std::invalid_argument& e) { std::cerr << e.what() << '\n'; return 2; }
     const auto source = std::string(argv[1]) == "--replay" ? CaptureSource::File : CaptureSource::Interface;
+    // Tiny mailboxes keep timed batching to avoid flooding the bridge with singleton messages.
+    const size_t flush_threshold = std::max<size_t>(32, capacity - capacity / 4);
     Mailbox box;
     std::atomic_bool stop{false};
     auto start = Clock::now();
@@ -162,6 +165,7 @@ int stream_capture(int argc, char** argv) {
                 std::lock_guard lock(box.mutex);
                 if (box.records.size() == capacity) return false;
                 box.records.push_back(std::move(record));
+                if (box.records.size() == flush_threshold) box.wake.notify_one();
                 return true;
             }, source, [&](const TrafficTotals& snapshot) {
                 std::lock_guard lock(box.mutex);
@@ -179,7 +183,7 @@ int stream_capture(int argc, char** argv) {
     while (!done) {
         std::vector<CaptureRecord> batch;
         std::unique_lock lock(box.mutex);
-        box.wake.wait_for(lock, std::chrono::milliseconds(200), [&] { return box.done; });
+        box.wake.wait_for(lock, std::chrono::milliseconds(200), [&] { return box.done || box.records.size() >= flush_threshold; });
         batch.swap(box.records);
         auto stats = box.stats;
         done = box.done;

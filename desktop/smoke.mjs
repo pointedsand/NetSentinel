@@ -21,11 +21,12 @@ for (const key of Object.keys(env)) {
 }
 env.Path = [system, join(system, 'WindowsPowerShell/v1.0'), process.env.SystemRoot].join(';');
 const profile = '--user-data-dir=' + join(dir, 'chromium');
-let desktop, page, port;
+let desktop, page, port, largeArchive;
 
 async function launch(demo, binary = executablePath) {
   desktop = await _electron.launch({ executablePath: binary, chromiumSandbox: true, env,
     args: demo ? [profile, '--demo'] : [profile], timeout: 25000 });
+  await desktop.evaluate(({app},path)=>app.setPath('documents',path),dir);
   page = await desktop.firstWindow({ timeout: 20000 });
   page.on('console', message => {
     if (message.type() === 'error') console.error('Renderer:', message.text());
@@ -39,6 +40,25 @@ async function launch(demo, binary = executablePath) {
 }
 const button = name => page.getByRole('button', { name, exact: true });
 const navigate = name => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+async function saveArchive(format,range) {
+  await button('Export').click();
+  await page.locator('.modal-body select').selectOption(format);
+  if (range) await page.getByRole('radio',{name:range}).check();
+  await button('Save archive').click();
+  await page.locator('.modal-box').waitFor({state:'hidden'});
+  return (await page.getByText(/^Saved to Logs · /).innerText()).split(' · ')[1];
+}
+async function openLargeArchive() {
+  await navigate('Logs');
+  await button('Refresh Archives').click();
+  await button('Open '+largeArchive).click();
+  await page.getByText(/^30000 packet records/).waitFor();
+  assert.equal(await page.locator('.imported-log tbody tr').count(),20);
+  await page.locator('.imported-log').getByRole('button',{name:'Next',exact:true}).click();
+  await page.getByText('Page 2 of 1500').waitFor();
+  await button('Close log').click();
+  await page.locator('.imported-log').waitFor({state:'hidden'});
+}
 async function verifyRetention() {
   const copy = join(dir, 'packaged-retention-test');
   await cp(dirname(executablePath), copy, { recursive: true });
@@ -103,6 +123,7 @@ async function verifyRetention() {
   for (let i=0; i<11; i++) await replay();
   await bounds(30000);
   await snapshot('Standard working set');
+  largeArchive=await saveArchive('CSV');
   await choose(50000);
   await bounds(30000);
   for (let i=0; i<14; i++) await replay();
@@ -162,6 +183,7 @@ async function verifyRetention() {
   await expectCount('Captured frames','0');
   await expectCount('History evictions','0');
   await expectCount('Retained / capacity','0 / 5,000');
+  await openLargeArchive();
   await closeWindow();
   console.log('PASS packaged retention: '+frames+' captured; four capacities, newest and oldest IDs, anchored selection, search, eviction, zero output drops and clear.');
 }
@@ -248,6 +270,8 @@ try {
   await button('Start capture').click();
   await page.waitForFunction(() => document.querySelector('[data-testid="packet-count"]')?.textContent === '3');
   await verifyWindowSize();
+  await openLargeArchive();
+  console.log('PASS archived 30,000 packets, cleared live history at 5,000, reopened and paged archive before and after relaunch.');
   await navigate('Packets');
   await button('3').click();
   await page.getByRole('region', { name: 'Packet details' }).waitFor();
@@ -256,30 +280,25 @@ try {
   await page.getByLabel('Display protocol').selectOption('');
   assert.equal(await page.locator('tbody tr').count(), 3);
   for (const format of ['CSV', 'JSON']) {
-    await button('Export').click();
-    await page.locator('.modal-body select').selectOption(format);
-    const output = join(dir, 'replay.' + format.toLowerCase());
-    await desktop.evaluate(({ session }, path) => {
-      globalThis.downloadResult = 'waiting';
-      session.defaultSession.once('will-download', (_event, item) => {
-        item.setSavePath(path);
-        item.once('done', (_event, state) => { globalThis.downloadResult = state; });
-      });
-    }, output);
-    await button('Download Export').click();
-    for (let i = 0; i < 50 && await desktop.evaluate(() => globalThis.downloadResult) === 'waiting'; i++)
-      await new Promise(done => setTimeout(done, 100));
-    assert.equal(await desktop.evaluate(() => globalThis.downloadResult), 'completed', 'Native ' + format + ' download');
+    const name=await saveArchive(format);
+    const output=join(dir,'NetSentinel_Logs',name);
     const data = await readFile(output, 'utf8');
     assert.equal(format === 'JSON' ? JSON.parse(data).length : data.trim().split('\n').length - 1, 3);
     await navigate('Logs');
     const choosing = page.waitForEvent('filechooser');
-    await button('Upload').click();
+    await button('Import External Log').click();
     await (await choosing).setFiles(output);
-    await page.locator('.imported-log tbody tr').first().waitFor();
+    await page.getByRole('heading',{name:'Imported metadata · '+name}).waitFor();
     assert.equal(await page.locator('.imported-log tbody tr').count(), 3);
     await navigate('Packets');
   }
+  await page.getByLabel('Select packet 2',{exact:true}).check();
+  const selected=await saveArchive('JSON',/^Selected Packets/);
+  assert.deepEqual(JSON.parse(await readFile(join(dir,'NetSentinel_Logs',selected),'utf8')).map(p=>p.id),[2]);
+  await page.getByLabel('Display protocol').selectOption('TCP');
+  const filtered=await saveArchive('JSON',/^Filtered View/);
+  assert.deepEqual(JSON.parse(await readFile(join(dir,'NetSentinel_Logs',filtered),'utf8')),[]);
+  await page.getByLabel('Display protocol').selectOption('');
   await navigate('Alerts');
   await button('Acknowledge').click();
   await page.locator('.security-review').getByText('Acknowledged', { exact: true }).waitFor();
@@ -334,6 +353,24 @@ try {
   await button('Stop capture').click();
   await button('Start capture').click();
   await button('Stop capture').waitFor();
+  await navigate('Packets');
+  const box=page.locator('.packet-virtualized-container');
+  await page.waitForFunction(()=>{const el=document.querySelector('.packet-virtualized-container');return el && el.scrollHeight>el.clientHeight+700;},null,{timeout:90000});
+  await box.evaluate(el=>{el.scrollTop=410;});
+  await button('Jump to newest').waitFor();
+  const id=await box.locator('.row-num button').nth(12).innerText();
+  const tick=()=>page.getByText('Captured frames',{exact:true}).locator('..').locator('dd').innerText();
+  await page.getByLabel('Select packet '+id,{exact:true}).check();
+  await button(id).click();
+  const y=await button(id).evaluate(el=>el.getBoundingClientRect().top);
+  const previous=await tick();
+  await page.waitForFunction(old=>[...document.querySelectorAll('dt')].find(el=>el.textContent==='Captured frames').nextElementSibling.textContent!==old,previous);
+  assert.ok(Math.abs(await button(id).evaluate(el=>el.getBoundingClientRect().top)-y)<2,'Live anchor moved');
+  assert.ok(await page.getByLabel('Select packet '+id,{exact:true}).isChecked());
+  assert.match(await page.locator('.packet-details h3').innerText(),new RegExp('Packet '+id+' '));
+  await button('Jump to newest').click();
+  assert.equal(await box.evaluate(el=>el.scrollTop),0);
+  console.log('PASS scrolled live Ethernet capture, preserved selection and details during incoming traffic, followed newest again.');
   const pid = await desktop.evaluate(() => process.pid);
   const ps = join(system, 'WindowsPowerShell/v1.0/powershell.exe');
   const children = async () => (await run(ps, ['-NoProfile', '-Command',

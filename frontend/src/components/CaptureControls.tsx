@@ -39,13 +39,14 @@ export function CaptureControls({state}: {state:Capture}) {
     </select></label>
     <dl className="rail-totals">
       <div><dt>Captured frames</dt><dd>{(packetCount + rejected).toLocaleString()}</dd></div>
-      <div><dt>Output drops</dt><dd>{outputDrops.toLocaleString()}</dd></div>
     </dl>
     <details className="session-diagnostics"><summary>Session details</summary><dl className="rail-totals">
       <div><dt>Retained / capacity</dt><dd>{stored}</dd></div>
+      <div><dt>Output drops</dt><dd>{outputDrops.toLocaleString()}</dd></div>
       <div><dt>History evictions</dt><dd>{evicted.toLocaleString()}</dd></div>
       <div><dt>Rejected</dt><dd>{rejected.toLocaleString()}</dd></div>
       <div><dt>Reverse DNS</dt><dd>{state.activeDns?'On':'Off'}</dd></div></dl>
+      <p>Output drops count records the worker could not queue for delivery. History evictions count older retained records removed from memory.</p>
       <p>{state.sourceIds[state.selected]}</p></details>
   </>;
 }

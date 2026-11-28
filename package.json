@@ -27,7 +27,7 @@
     "asar": true,
     "directories": { "output": "release" },
     "files": [
-      "desktop/main.mjs", "desktop/renderer.mjs", "desktop/window-bounds.mjs", "frontend/dist/**/*",
+      "desktop/main.mjs", "desktop/archives.mjs", "desktop/preload.cjs", "desktop/renderer.mjs", "desktop/window-bounds.mjs", "frontend/dist/**/*",
       "backend/service/{server,administrator,monitor,monitor-store,detections,device-names,history,inventory,neighbors,observed-names,resolver}.mjs",
       "!**/backend/service/node_modules/**"
     ],

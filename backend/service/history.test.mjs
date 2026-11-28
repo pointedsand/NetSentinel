@@ -87,3 +87,17 @@ test('one persistent preference works alongside an existing monitoring store',as
   await writeFile(file+'.preferences.json',JSON.stringify({version:1,historyLimit:999999}));
   assert.equal((await openHistoryPreferences(file)).limit,30000);
 });
+
+test('shrinking paused history leaves an existing 943 queue losses unchanged across snapshots and restarts',()=>{
+  const history=new PacketHistory();
+  const batch={...history.stats,packetCount:30943,outputDrops:943,packets:Array.from({length:30000},()=>({}))};
+  history.append(batch,'fixture');
+  history.append({...batch,packets:[]},'fixture');
+  history.resize(5000);
+  assert.deepEqual([history.stats.outputDrops,history.evicted,history.rows[0].id],[943,25000,25001]);
+  history.begin();
+  history.append({...batch,packetCount:2,outputDrops:1,packets:[{}]},'fixture');
+  assert.deepEqual([history.stats.packetCount,history.stats.outputDrops,history.evicted],[30945,944,25001]);
+  history.clear();
+  assert.deepEqual([history.stats.outputDrops,history.evicted,history.limit],[0,0,5000]);
+});
