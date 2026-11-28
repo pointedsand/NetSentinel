@@ -13,6 +13,18 @@ function localAdapterAddresses(name) {
   }
 }
 
+function validatePage(offset,eventOffset,deviceFilter,eventFilter) {
+  for (const value of [offset,eventOffset]) {
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0 || value > 512))
+      throw Error('Invalid monitoring page.');
+  }
+  for (const filter of [deviceFilter,eventFilter]) {
+    if (filter !== undefined && (!filter || typeof filter !== 'object' || Array.isArray(filter) ||
+        Object.values(filter).some(v=>typeof v !== 'string' && typeof v !== 'boolean')))
+      throw Error('Invalid monitoring filter.');
+  }
+}
+
 export class Monitor {
   constructor({ store, discover = readNeighbors } = {}) {
     this.store = store;
@@ -180,8 +192,7 @@ export class Monitor {
       unacknowledged,severityCounts,eventTypes:[...eventTypes].sort()};
   }
   view(offset = 0,eventOffset = 0,filter = {},eventFilter = {}) {
-    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 512) throw Error('Invalid monitoring page.');
-    if (!Number.isSafeInteger(eventOffset) || eventOffset < 0 || eventOffset > 512) throw Error('Invalid event page.');
+    validatePage(offset,eventOffset,filter,eventFilter);
     const devices = [...this.inventory.devices.values()].sort((a,b)=>b.last-a.last);
     const term = String(filter.term ?? '').toLowerCase().trim().slice(0,256);
     const now = Date.now();
@@ -198,6 +209,7 @@ export class Monitor {
       devices:matching.slice(offset,offset+pageSize).map(present), offset, capacityReached:devices.length === 512 };
   }
   command(msg) {
+    if (msg.command !== 'monitor') validatePage(msg.offset,msg.eventOffset,msg.deviceFilter,msg.eventFilter);
     if (msg.command === 'device_preference') { this.inventory.edit(msg.id,msg.label,msg.trusted); this.changed(); }
     if (msg.command === 'monitor_rules') { this.detector.rules = validateRules(msg.rules); this.changed(); }
     if (msg.command === 'ack_event') this.detector.acknowledge(msg.id);

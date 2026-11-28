@@ -10,7 +10,8 @@ import { DevicesPage } from './pages/DevicesPage';
 import { LogViewerPage } from './pages/LogViewerPage';
 import { PacketsPage } from './pages/PacketsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { AuthPage } from './pages/AuthPage';
+import { UnlockDialog } from './pages/AuthPage';
+import './styles/access-control.css';
 import { createSeedAlerts, DEFAULT_ALERT_RULES } from './pages/alertTypes';
 import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
@@ -19,9 +20,7 @@ import { useCapture } from './hooks/useCapture';
 import { CaptureControls, CaptureSource, NameResolution } from './components/CaptureControls';
 
 export function App() {
-  const [mode, setMode] = useState<"welcome"|"capture"|"simulation">(() => sessionStorage.getItem("netsentinel.workspace") === "capture" ? "capture" : "welcome");
-  if (mode === "welcome") return <AuthPage onContinue={() => { sessionStorage.setItem("netsentinel.workspace","capture"); setMode("capture"); }} onSimulation={() => setMode("simulation")} />;
-  return mode === "simulation" ? <DemoApp /> : <CaptureApp />;
+  return new URLSearchParams(window.location.search).get('workspace') === 'simulation' ? <DemoApp /> : <CaptureApp />;
 }
 
 function DemoApp() {
@@ -84,12 +83,13 @@ function CaptureApp() {
   const capture = useCapture(page === 'dashboard' || page === 'devices' || page === 'alerts' || page === 'logs', page === 'alerts');
   const dashboard = () => navigate('dashboard');
   const [detailId, selectDetail] = useState<number | null>(null);
-  return <AppShell activePage={page} setActivePage={next => { selectDetail(null); navigate(next); }}
+  return <AppShell activePage={page} setActivePage={next => { capture.admin.cancel(); selectDetail(null); navigate(next); }}
     connected={capture.connected} pending={capture.pending} running={capture.running} toggle={()=>capture.capture(!capture.running)}
     status={capture.error ? 'Capture error' : !capture.connected ? 'Reconnecting' : (capture.mode==='--replay'?'Replay':'Live')+' · '+(capture.running?'Running':'Paused')}
     source={page==='dashboard' ? <CaptureSource state={capture}/> : <span className="session-source" title={capture.sourceIds[capture.selected]}>{sourceName(capture,capture.selected)}</span>}
     notice={<>{capture.error && <p role="alert" className="session-notice">{capture.error}</p>}
       {capture.stats.outputDrops>0 && <p className="session-notice">{capture.stats.outputDrops.toLocaleString()} output packets dropped</p>}</>}>
+    <UnlockDialog admin={capture.admin}/>
     {page === 'dashboard' && <DashboardOverview navigate={navigate} packets={capture.packets} alerts={[]} capture={capture} inspect={id => { selectDetail(id); navigate('packets'); }} />}
     {page === 'packets' && capture.packetEvent && <div className="device-packet-filter">{capture.packetEvent.type} · related observations
       <button className="tool-btn" onClick={()=>capture.setPacketEvent(null)}>Clear alert filter</button></div>}
@@ -109,8 +109,9 @@ function CaptureApp() {
       capture.setPacketDevice(null); capture.setPacketEvent(event); capture.setQuery(''); capture.setProtocol('');
       selectDetail(null); navigate('packets');
     }} />}
-    {page === 'logs' && <LogViewerPage monitoringEvents={capture.monitor?.events} importedLog={importedLog} onImport={setImportedLog} archiveUnavailable initialLogs={[]} initialSecurityEvents={[]} />}
-    {page === 'settings' && <SettingsPage monitoring={<NameResolution state={capture}/>} onNavigateDashboard={dashboard} />}
+    {page === 'logs' && <LogViewerPage monitoringEvents={capture.monitor?.events} eventTotal={capture.monitor?.eventTotal}
+      onDeleteEvents={(newest,total)=>capture.command('clear_events',{newest,total})} importedLog={importedLog} onImport={setImportedLog} archiveUnavailable initialLogs={[]} initialSecurityEvents={[]} />}
+    {page === 'settings' && <SettingsPage admin={capture.admin} monitoring={<NameResolution state={capture}/>} onNavigateDashboard={dashboard} />}
   </AppShell>;
 }
 

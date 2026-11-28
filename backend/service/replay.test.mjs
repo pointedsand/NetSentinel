@@ -28,10 +28,10 @@ for (const [link, count] of [[1,1], [127,1], [1,10000]]) test('WebSocket replay 
   const udp = Buffer.from('000102030405060708090a0b08004500001c00000000401100000a0000010a0000023039003500080000','hex');
   const other = Buffer.alloc(14);
   await writeFile(path, pcap(link, [other, Buffer.alloc(2), ...Array(count).fill(udp)]));
-  const app = serve({executable:process.env.NETSENTINEL_BIN || 'netsentinel', mode:'--replay',source:path,port:0});
+  const app = serve({credentialFile:join(dir,'admin.json'),executable:process.env.NETSENTINEL_BIN || 'netsentinel', mode:'--replay',source:path,port:0});
   t.after(() => app.close());
   await once(app.server,'listening');
-  const client = new WebSocket('ws://127.0.0.1:'+app.server.address().port);
+  const client = new WebSocket('ws://127.0.0.1:'+app.server.address().port,{origin:'http://localhost:5173'});
   t.after(() => client.terminate());
   await once(client,'open');
   const packets = [];
@@ -94,9 +94,9 @@ test('DHCP and NetBIOS names reach scoped inventory through an actual pcap repla
   const source=join(dir,'names.pcap');
   await writeFile(source,pcap(1,[nameFrame(10,68,67,Buffer.concat([dhcp,options])),arp(10),
     arp(20),nameFrame(20,137,137,Buffer.concat([nb,answer]))]));
-  const app=serve({executable:process.env.NETSENTINEL_BIN || 'netsentinel',mode:'--replay',source,port:0});
+  const app=serve({credentialFile:join(dir,'admin.json'),executable:process.env.NETSENTINEL_BIN || 'netsentinel',mode:'--replay',source,port:0});
   await once(app.server,'listening');
-  const client=new WebSocket('ws://127.0.0.1:'+app.server.address().port);
+  const client=new WebSocket('ws://127.0.0.1:'+app.server.address().port,{origin:'http://localhost:5173'});
   try {
     await once(client,'open');
     const messages=on(client,'message');

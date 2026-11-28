@@ -56,7 +56,7 @@ try {
   await once(bridge.server, 'listening');
   site = await createServer({ root: frontend, server: { host: '127.0.0.1', port: 5173, strictPort: true } });
   await site.listen();
-  console.log(`Open ${origin} and select Open local dashboard. Ctrl+C stops NetSentinel.`);
+  console.log(`Open ${origin}. Ctrl+C stops NetSentinel.`);
   process.once('SIGINT', close);
   process.once('SIGTERM', close);
 } catch (error) {

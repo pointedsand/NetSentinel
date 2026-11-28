@@ -2,6 +2,7 @@ import { chromium } from 'playwright-core';
 import { preview } from '../../frontend/node_modules/vite/dist/node/index.js';
 import { Monitor } from './monitor.mjs';
 import { serve } from './server.mjs';
+import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
@@ -14,13 +15,79 @@ execFileSync(process.execPath,['backend/service/demo-pcap.mjs',fixture]);
 const site=await preview({root:resolve('frontend'),configFile:false,preview:{host:'127.0.0.1',port:0}});
 const origin='http://127.0.0.1:'+site.httpServer.address().port;
 const device = process.env.NETSENTINEL_SMOKE_DEVICE;
-const config={executable:process.env.NETSENTINEL_BIN || resolve('backend/build/capture/netsentinel.exe'),
+const config={credentialFile:resolve(dir,'admin.json'),executable:process.env.NETSENTINEL_BIN || resolve('backend/build/capture/netsentinel.exe'),
   mode:device ? '--interface' : '--replay',source:device || fixture,sources:device ? [device] : [fixture,resolve(dir,'second.pcap')],origin};
 if (!device) execFileSync(process.execPath,['backend/service/demo-pcap.mjs',config.sources[1]]);
 if (!device) {
   const securityFixture = resolve(dir,'device-arrival-fixture.pcap');
   execFileSync(process.execPath,['backend/service/security-demo.mjs',securityFixture]);
   config.sources.push(securityFixture);
+}
+async function verifyAdministrator(page) {
+  const tab = name=>page.getByRole('tab',{name,exact:true});
+  const button = name=>page.getByRole('button',{name,exact:true});
+  const visitAccess = async()=>{
+    await button('Settings').click();
+    await tab('Access Control').click();
+  };
+  const password = randomBytes(24).toString('hex');
+  const replacement = randomBytes(24).toString('hex');
+  await visitAccess();
+  if (process.env.NETSENTINEL_DESKTOP_REVIEW) {
+    await page.setViewportSize({width:1366,height:768});
+    await page.screenshot({path:resolve(process.env.NETSENTINEL_DESKTOP_REVIEW,'AccessControl-1366.png')});
+  }
+  await button('Set administrator password').click();
+  const path = await page.locator('.admin-settings code').innerText();
+  assert.equal(resolve(dir),resolve(path,'..'));
+  const chooser = page.waitForEvent('filechooser');
+  await button('Choose Setup File').click();
+  await (await chooser).setFiles(path);
+  await page.getByText('Setup file verified.',{exact:true}).waitFor();
+  await page.getByLabel('New password',{exact:true}).fill(password);
+  await page.getByLabel('Confirm new password').fill(password);
+  await button('Enable protection').click();
+  await page.getByText('Administrator protection enabled.',{exact:true}).waitFor();
+  await button('Logs').click();
+  await tab('Security Event Logs').click();
+  const purge = async()=>{
+    await button('Clear History').click();
+    await button('Confirm Delete').click();
+  };
+  await purge();
+  const dialog = page.getByRole('dialog',{name:'Administrator Authentication Required'});
+  await dialog.waitFor();
+  if (process.env.NETSENTINEL_DESKTOP_REVIEW)
+    await page.screenshot({path:resolve(process.env.NETSENTINEL_DESKTOP_REVIEW,'Unlock-1366.png')});
+  const input = dialog.getByLabel('Password',{exact:true});
+  assert.ok(await input.evaluate(el=>el===document.activeElement));
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({state:'hidden'});
+  assert.ok(await page.locator('.log-severity').count()>0);
+  await purge();
+  await input.fill(randomBytes(18).toString('hex'));
+  await dialog.getByRole('button',{name:'Unlock',exact:true}).click();
+  await dialog.getByRole('alert').waitFor();
+  await input.fill(password);
+  await input.press('Enter');
+  await dialog.waitFor({state:'hidden'});
+  await page.waitForFunction(()=>document.querySelectorAll('.log-severity').length===0);
+  await visitAccess();
+  await button('Lock Now').click();
+  await button('Unlock administrator controls').waitFor();
+  await page.getByLabel('Current password').fill(password);
+  await page.getByLabel('New password',{exact:true}).fill(replacement);
+  await page.getByLabel('Confirm new password').fill(replacement);
+  await button('Save password').click();
+  await page.waitForFunction(()=>!document.querySelector('.admin-form button[type=submit]')?.disabled);
+  await page.reload();
+  await visitAccess();
+  await page.getByText('Locked',{exact:true}).waitFor();
+  await button('Disable protection').click();
+  await page.getByLabel('Current password').fill(replacement);
+  await button('Confirm disable').click();
+  await page.getByText('Administrator protection is disabled.',{exact:true}).waitFor();
+  console.log('PASS Edge administrator setup, cancelled and denied purge, authorized purge, lock, rotation, reconnect and disable.');
 }
 let app=serve({...config,port:0});
 await once(app.server,'listening');
@@ -39,7 +106,6 @@ try {
  await page.setViewportSize({width:1366,height:768});
  page.on('pageerror',error=>pageErrors.push(error.message));
  await page.goto(origin);
- await page.getByRole('button',{name:'Open local dashboard'}).click();
  await page.getByText(/Backend connected/).waitFor();
  if (device) {
    let packetTotal = 0;
@@ -288,6 +354,7 @@ try {
  await page.getByText('25–48',{exact:true}).waitFor();
  await page.getByLabel('Severity',{exact:true}).selectOption('Critical');
  await page.waitForFunction(()=>document.querySelectorAll('.security-entry[data-severity=Critical]').length===24);
+ await verifyAdministrator(page);
  console.log('PASS Edge replay: capture, filters, reconnect, device details, trust, alerts, disk-backed import, three verified export ranges and 49-event layout fixture.');
  }
  assert.deepEqual(pageErrors,[]);

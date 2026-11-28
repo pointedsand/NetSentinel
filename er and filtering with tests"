@@ -1,0 +1,383 @@
+[1mdiff --git a/backend/CMakeLists.txt b/backend/CMakeLists.txt[m
+[1mindex a15fcd7..b41ed4a 100644[m
+[1m--- a/backend/CMakeLists.txt[m
+[1m+++ b/backend/CMakeLists.txt[m
+[36m@@ -6,13 +6,24 @@[m [mproject(NetSentinel LANGUAGES CXX)[m
+ set(CMAKE_CXX_STANDARD 17)[m
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)[m
+ [m
+[32m+[m[32madd_library(netsentinel_core[m[41m[m
+[32m+[m[32m    src/ProtocolParser.cpp[m[41m[m
+[32m+[m[32m    src/PacketFiltering.cpp[m[41m[m
+[32m+[m[32m)[m[41m[m
+[32m+[m[32mtarget_include_directories(netsentinel_core PUBLIC[m[41m[m
+[32m+[m[32m    "${CMAKE_CURRENT_SOURCE_DIR}/include"[m[41m[m
+[32m+[m[32m)[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32moption(BUILD_CAPTURE_APP "Build the application requiring Npcap/libpcap" ON)[m[41m[m
+[32m+[m[41m[m
+[32m+[m[32mif(BUILD_CAPTURE_APP)[m[41m[m
+ # main backend executable[m
+ add_executable(netsentinel[m
+     src/main.cpp[m
+     src/NetworkInterface.cpp[m
+     src/PacketCapture.cpp[m
+[31m-    src/ProtocolParser.cpp[m
+ )[m
+[32m+[m[32mtarget_link_libraries(netsentinel PRIVATE netsentinel_core)[m[41m[m
+ [m
+ # header files[m
+ target_include_directories(netsentinel PRIVATE[m
+[36m@@ -49,6 +60,7 @@[m [melse()[m
+         PkgConfig::PCAP[m
+     )[m
+ endif()[m
+[32m+[m[32mendif()[m[41m[m
+ [m
+ # automated unit tests[m
+ include(CTest)[m
+[36m@@ -56,18 +68,21 @@[m [minclude(CTest)[m
+ if(BUILD_TESTING)[m
+     add_executable(parser_tests[m
+         tests/ProtocolParserTests.cpp[m
+[31m-        src/ProtocolParser.cpp[m
+     )[m
+ [m
+[31m-    target_include_directories(parser_tests PRIVATE[m
+[31m-        "${CMAKE_CURRENT_SOURCE_DIR}/include"[m
+[31m-    )[m
+[32m+[m[32m    add_executable(packet_filtering_tests tests/PacketFilteringTests.cpp)[m[41m[m
+[32m+[m[32m    add_executable(packet_pipeline_tests tests/PacketPipelineTests.cpp)[m[41m[m
+ [m
+[32m+[m[32m    foreach(test_target IN ITEMS parser_tests packet_filtering_tests packet_pipeline_tests)[m[41m[m
+[32m+[m[32m        target_link_libraries(${test_target} PRIVATE netsentinel_core)[m[41m[m
+     if(MSVC)[m
+[31m-        target_compile_options(parser_tests PRIVATE /UNDEBUG)[m
+[32m+[m[32m        target_compile_options(${test_target} PRIVATE /UNDEBUG)[m[41m[m
+     else()[m
+[31m-        target_compile_options(parser_tests PRIVATE -UNDEBUG)[m
+[32m+[m[32m        target_compile_options(${test_target} PRIVATE -UNDEBUG)[m[41m[m
+     endif()[m
+[32m+[m[32m    endforeach()[m[41m[m
+ [m
+     add_test(NAME ProtocolParserTests COMMAND parser_tests)[m
+[31m-endif()[m
+\ No newline at end of file[m
+[32m+[m[32m    add_test(NAME PacketFilteringTests COMMAND packet_filtering_tests)[m[41m[m
+[32m+[m[32m    add_test(NAME PacketPipelineTests COMMAND packet_pipeline_tests)[m[41m[m
+[32m+[m[32mendif()[m[41m[m
+[1mdiff --git a/backend/include/PacketFiltering.hpp b/backend/include/PacketFiltering.hpp[m
+[1mindex e69de29..8b206ef 100644[m
+[1m--- a/backend/include/PacketFiltering.hpp[m
+[1m+++ b/backend/include/PacketFiltering.hpp[m
+[36m@@ -0,0 +1,26 @@[m
+[32m+[m[32m#pragma once[m
+[32m+[m
+[32m+[m[32m#include "ParsedPacket.hpp"[m
+[32m+[m[32m#include <optional>[m
+[32m+[m[32m#include <string>[m
+[32m+[m[32m#include <cstdint>[m
+[32m+[m
+[32m+[m[32m// Stores the filtering conditions selected by the user.[m
+[32m+[m[32mstruct FilterConfig {[m
+[32m+[m[32m    std::optional<Protocol> protocol;[m
+[32m+[m[32m    std::optional<std::string> source_ip;[m
+[32m+[m[32m    std::optional<std::string> destination_ip;[m
+[32m+[m[32m    std::optional<uint16_t> source_port;[m
+[32m+[m[32m    std::optional<uint16_t> destination_port;[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32m// Determines whether a parsed packet matches the filter.[m
+[32m+[m[32mclass PacketFilter {[m
+[32m+[m[32mpublic:[m
+[32m+[m[32m    explicit PacketFilter(const FilterConfig& config);[m
+[32m+[m
+[32m+[m[32m    bool matches(const ParsedPacket& packet) const;[m
+[32m+[m
+[32m+[m[32mprivate:[m
+[32m+[m[32m    FilterConfig config_;[m
+[32m+[m[32m};[m
+[1mdiff --git a/backend/src/PacketFiltering.cpp b/backend/src/PacketFiltering.cpp[m
+[1mindex e69de29..0067530 100644[m
+[1m--- a/backend/src/PacketFiltering.cpp[m
+[1m+++ b/backend/src/PacketFiltering.cpp[m
+[36m@@ -0,0 +1,39 @@[m
+[32m+[m[32m#include "PacketFiltering.hpp"[m
+[32m+[m
+[32m+[m[32mPacketFilter::PacketFilter(const FilterConfig& config)[m
+[32m+[m[32m    : config_(config) {}[m
+[32m+[m
+[32m+[m[32mbool PacketFilter::matches(const ParsedPacket& packet) const {[m
+[32m+[m
+[32m+[m[32m    // Filter by protocol[m
+[32m+[m[32m    if (config_.protocol.has_value() &&[m
+[32m+[m[32m        packet.protocol != config_.protocol.value()) {[m
+[32m+[m[32m        return false;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Filter by source IP[m
+[32m+[m[32m    if (config_.source_ip.has_value() &&[m
+[32m+[m[32m        packet.source_ip != config_.source_ip.value()) {[m
+[32m+[m[32m        return false;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Filter by destination IP[m
+[32m+[m[32m    if (config_.destination_ip.has_value() &&[m
+[32m+[m[32m        packet.destination_ip != config_.destination_ip.value()) {[m
+[32m+[m[32m        return false;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Filter by source port[m
+[32m+[m[32m    if (config_.source_port.has_value() &&[m
+[32m+[m[32m        packet.source_port != config_.source_port) {[m
+[32m+[m[32m        return false;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    // Filter by destination port[m
+[32m+[m[32m    if (config_.destination_port.has_value() &&[m
+[32m+[m[32m        packet.destination_port != config_.destination_port) {[m
+[32m+[m[32m        return false;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    return true;[m
+[32m+[m[32m}[m
+[1mdiff --git a/backend/tests/PacketFilteringTests.cpp b/backend/tests/PacketFilteringTests.cpp[m
+[1mnew file mode 100644[m
+[1mindex 0000000..9a4137e[m
+[1m--- /dev/null[m
+[1m+++ b/backend/tests/PacketFilteringTests.cpp[m
+[36m@@ -0,0 +1,65 @@[m
+[32m+[m
+[32m+[m[32m#include "PacketFiltering.hpp"[m
+[32m+[m[32m#include <cassert>[m
+[32m+[m[32m#include <iostream>[m
+[32m+[m
+[32m+[m[32mint main() {[m
+[32m+[m
+[32m+[m[32m    ParsedPacket tcp_packet{[m
+[32m+[m[32m        "192.168.1.10",[m
+[32m+[m[32m        "8.8.8.8",[m
+[32m+[m[32m        Protocol::TCP,[m
+[32m+[m[32m        50000,[m
+[32m+[m[32m        443,[m
+[32m+[m[32m        100[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    ParsedPacket udp_packet{[m
+[32m+[m[32m        "192.168.1.20",[m
+[32m+[m[32m        "1.1.1.1",[m
+[32m+[m[32m        Protocol::UDP,[m
+[32m+[m[32m        50001,[m
+[32m+[m[32m        53,[m
+[32m+[m[32m        80[m
+[32m+[m[32m    };[m
+[32m+[m
+[32m+[m[32m    // Test 1: TCP protocol filtering[m
+[32m+[m[32m    FilterConfig tcp_config;[m
+[32m+[m[32m    tcp_config.protocol = Protocol::TCP;[m
+[32m+[m
+[32m+[m[32m    PacketFilter tcp_filter(tcp_config);[m
+[32m+[m
+[32m+[m[32m    assert(tcp_filter.matches(tcp_packet));[m
+[32m+[m[32m    assert(!tcp_filter.matches(udp_packet));[m
+[32m+[m
+[32m+[m[32m    // Test 2: Destination port filtering[m
+[32m+[m[32m    FilterConfig port_config;[m
+[32m+[m[32m    port_config.destination_port = 443;[m
+[32m+[m
+[32m+[m[32m    PacketFilter port_filter(port_config);[m
+[32m+[m
+[32m+[m[32m    assert(port_filter.matches(tcp_packet));[m
+[32m+[m[32m    assert(!port_filter.matches(udp_packet));[m
+[32m+[m
+[32m+[m[32m    // Test 3: Source IP filtering[m
+[32m+[m[32m    FilterConfig ip_config;[m
+[32m+[m[32m    ip_config.source_ip = "192.168.1.10";[m
+[32m+[m
+[32m+[m[32m    PacketFilter ip_filter(ip_config);[m
+[32m+[m
+[32m+[m[32m    assert(ip_filter.matches(tcp_packet));[m
+[32m+[m[32m    assert(!ip_filter.matches(udp_packet));[m
+[32m+[m
+[32m+[m[32m    // Test 4: Combined filtering[m
+[32m+[m[32m    FilterConfig combined_config;[m
+[32m+[m[32m    combined_config.protocol = Protocol::TCP;[m
+[32m+[m[32m    combined_config.destination_port = 443;[m
+[32m+[m
+[32m+[m[32m    PacketFilter combined_filter(combined_config);[m
+[32m+[m
+[32m+[m[32m    assert(combined_filter.matches(tcp_packet));[m
+[32m+[m[32m    assert(!combined_filter.matches(udp_packet));[m
+[32m+[m
+[32m+[m[32m    std::cout << "All Packet Filtering tests passed!\n";[m
+[32m+[m[32m    return 0;[m
+[32m+[m[32m}[m
+[1mdiff --git a/backend/tests/PacketPipelineTests.cpp b/backend/tests/PacketPipelineTests.cpp[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e1acefb[m
+[1m--- /dev/null[m
+[1m+++ b/backend/tests/PacketPipelineTests.cpp[m
+[36m@@ -0,0 +1,163 @@[m
+[32m+[m[32m#include "PacketFiltering.hpp"[m
+[32m+[m[32m#include "ProtocolParser.hpp"[m
+[32m+[m[32m#include <cassert>[m
+[32m+[m[32m#include <cstdint>[m
+[32m+[m[32m#include <iostream>[m
+[32m+[m[32m#include <utility>[m
+[32m+[m[32m#include <vector>[m
+[32m+[m
+[32m+[m[32mnamespace {[m
+[32m+[m[32m    std::vector<uint8_t> tcp_frame() {[m
+[32m+[m[32m        return {[m
+[32m+[m[32m            0,1,2,3,4,5, 6,7,8,9,10,11, 0x08,0x00,[m
+[32m+[m[32m            0x45,0, 0,40, 0,0, 0,0, 64,6, 0,0,[m
+[32m+[m[32m            192,168,1,10, 8,8,8,8,[m
+[32m+[m[32m            0xC0,0, 0x01,0xBB, 0,0,0,0, 0,0,0,0,[m
+[32m+[m[32m            0x50,0, 0,0, 0,0, 0,0[m
+[32m+[m[32m        };[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    std::vector<uint8_t> udp_frame() {[m
+[32m+[m[32m        auto frame = tcp_frame();[m
+[32m+[m[32m        frame.resize(42);[m
+[32m+[m[32m        frame[17] = 28;[m
+[32m+[m[32m        frame[23] = 17;[m
+[32m+[m[32m        frame[36] = 0;[m
+[32m+[m[32m        frame[37] = 53;[m
+[32m+[m[32m        frame[38] = 0;[m
+[32m+[m[32m        frame[39] = 8;[m
+[32m+[m[32m        return frame;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    void expect_rejected(const uint8_t* data, size_t size, uint32_t original_size) {[m
+[32m+[m[32m        ParsedPacket packet{"unchanged source", "unchanged destination", Protocol::ICMP,[m
+[32m+[m[32m                            123, 456, 789};[m
+[32m+[m[32m        assert(!parse_packet(data, size, original_size, packet));[m
+[32m+[m[32m        assert(packet.source_ip == "unchanged source");[m
+[32m+[m[32m        assert(packet.destination_ip == "unchanged destination");[m
+[32m+[m[32m        assert(packet.protocol == Protocol::ICMP);[m
+[32m+[m[32m        assert(packet.source_port == 123);[m
+[32m+[m[32m        assert(packet.destination_port == 456);[m
+[32m+[m[32m        assert(packet.packet_size == 789);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    void test_valid_packets_and_filters() {[m
+[32m+[m[32m        for (const auto& frame : {tcp_frame(), udp_frame()}) {[m
+[32m+[m[32m            ParsedPacket packet{};[m
+[32m+[m[32m            assert(parse_packet(frame.data(), frame.size(), frame.size(), packet));[m
+[32m+[m[32m            assert(packet.source_ip == "192.168.1.10");[m
+[32m+[m[32m            assert(packet.destination_ip == "8.8.8.8");[m
+[32m+[m[32m            assert(packet.source_port == 49152);[m
+[32m+[m[32m            assert(packet.packet_size == frame.size());[m
+[32m+[m[32m            const bool tcp = frame[23] == 6;[m
+[32m+[m[32m            assert(packet.protocol == (tcp ? Protocol::TCP : Protocol::UDP));[m
+[32m+[m[32m            assert(packet.destination_port == (tcp ? 443 : 53));[m
+[32m+[m[32m            assert(PacketFilter(FilterConfig{}).matches(packet));[m
+[32m+[m
+[32m+[m[32m            FilterConfig config;[m
+[32m+[m[32m            config.protocol = packet.protocol;[m
+[32m+[m[32m            config.source_ip = packet.source_ip;[m
+[32m+[m[32m            config.destination_ip = packet.destination_ip;[m
+[32m+[m[32m            config.source_port = packet.source_port;[m
+[32m+[m[32m            config.destination_port = packet.destination_port;[m
+[32m+[m[32m            assert(PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.destination_port = 80;[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.destination_port = packet.destination_port;[m
+[32m+[m[32m            config.source_ip = "10.0.0.1";[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.source_ip = packet.source_ip;[m
+[32m+[m[32m            config.destination_ip = "10.0.0.2";[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.destination_ip = packet.destination_ip;[m
+[32m+[m[32m            config.source_port = 0;[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        auto frame = udp_frame();[m
+[32m+[m[32m        frame[34] = frame[35] = frame[36] = frame[37] = 0;[m
+[32m+[m[32m        ParsedPacket packet{};[m
+[32m+[m[32m        assert(parse_packet(frame.data(), frame.size(), frame.size(), packet));[m
+[32m+[m[32m        FilterConfig config;[m
+[32m+[m[32m        config.source_port = 0;[m
+[32m+[m[32m        config.destination_port = 0;[m
+[32m+[m[32m        assert(PacketFilter(config).matches(packet));[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    void test_malformed_packets() {[m
+[32m+[m[32m        for (const auto& change : std::vector<std::pair<size_t, uint8_t>>{[m
+[32m+[m[32m                 {14, 0x65}, {14, 0x44}, {17, 19}, {46, 0x40}, {46, 0xF0}}) {[m
+[32m+[m[32m            auto frame = tcp_frame();[m
+[32m+[m[32m            frame[change.first] = change.second;[m
+[32m+[m[32m            expect_rejected(frame.data(), frame.size(), frame.size());[m
+[32m+[m[32m        }[m
+[32m+[m[32m        expect_rejected(nullptr, 0, 0);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    void test_truncated_packets() {[m
+[32m+[m[32m        for (const auto& frame : {tcp_frame(), udp_frame()}) {[m
+[32m+[m[32m            for (size_t size = 0; size < frame.size(); ++size) {[m
+[32m+[m[32m                expect_rejected(frame.data(), size, frame.size());[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m        // Also exercise transport boundaries when the entire advertised IP packet is captured.[m
+[32m+[m[32m        for (const auto& frame : {tcp_frame(), udp_frame()}) {[m
+[32m+[m[32m            for (size_t size = 34; size < frame.size(); ++size) {[m
+[32m+[m[32m                auto shortened = frame;[m
+[32m+[m[32m                shortened.resize(size);[m
+[32m+[m[32m                shortened[17] = static_cast<uint8_t>(size - 14);[m
+[32m+[m[32m                expect_rejected(shortened.data(), shortened.size(), frame.size());[m
+[32m+[m[32m            }[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    void test_existing_unsupported_classification() {[m
+[32m+[m[32m        for (uint16_t ether_type : {0x0806, 0x88B5}) {[m
+[32m+[m[32m            auto frame = tcp_frame();[m
+[32m+[m[32m            frame.resize(14);[m
+[32m+[m[32m            frame[12] = static_cast<uint8_t>(ether_type >> 8);[m
+[32m+[m[32m            frame[13] = static_cast<uint8_t>(ether_type);[m
+[32m+[m[32m            ParsedPacket packet{};[m
+[32m+[m[32m            assert(parse_packet(frame.data(), frame.size(), 60, packet));[m
+[32m+[m[32m            assert(packet.protocol == Protocol::Other);[m
+[32m+[m[32m            assert(packet.source_ip.empty() && packet.destination_ip.empty());[m
+[32m+[m[32m            assert(!packet.source_port && !packet.destination_port);[m
+[32m+[m[32m            assert(packet.packet_size == 60);[m
+[32m+[m[32m            FilterConfig config;[m
+[32m+[m[32m            config.protocol = Protocol::Other;[m
+[32m+[m[32m            assert(PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.source_port = 0;[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.source_port.reset();[m
+[32m+[m[32m            config.destination_port = 443;[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m            config.destination_port.reset();[m
+[32m+[m[32m            config.protocol = Protocol::TCP;[m
+[32m+[m[32m            assert(!PacketFilter(config).matches(packet));[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    void test_existing_udp_length_validation_gap() {[m
+[32m+[m[32m        // Characterization only: desired UDP length validation is deferred, not implemented here.[m
+[32m+[m[32m        for (uint16_t udp_length : {0, 7, 9}) {[m
+[32m+[m[32m            auto frame = udp_frame();[m
+[32m+[m[32m            frame[38] = static_cast<uint8_t>(udp_length >> 8);[m
+[32m+[m[32m            frame[39] = static_cast<uint8_t>(udp_length);[m
+[32m+[m[32m            ParsedPacket packet{};[m
+[32m+[m[32m            assert(parse_packet(frame.data(), frame.size(), frame.size(), packet));[m
+[32m+[m[32m            FilterConfig config;[m
+[32m+[m[32m            config.destination_port = 53;[m
+[32m+[m[32m            assert(PacketFilter(config).matches(packet));[m
+[32m+[m[32m        }[m
+[32m+[m[32m        std::cout << "KNOWN GAP: inconsistent UDP lengths currently reach filtering.\n";[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mint main() {[m
+[32m+[m[32m    test_valid_packets_and_filters();[m
+[32m+[m[32m    test_malformed_packets();[m
+[32m+[m[32m    test_truncated_packets();[m
+[32m+[m[32m    test_existing_unsupported_classification();[m
+[32m+[m[32m    test_existing_udp_length_validation_gap();[m
+[32m+[m[32m    std::cout << "All packet pipeline tests passed (including existing-behavior checks).\n";[m
+[32m+[m[32m}[m

@@ -4,6 +4,8 @@ import type { SecurityEvent } from '../types';
 import { isDevicePacket } from '../deviceIdentity';
 import type { LocalDevice, CaptureMessage, CaptureMode, CaptureStats, MonitorView, Packet, RecordData } from '../types';
 
+import { useAdministrator } from './useAdministrator';
+
 function displayName(p:RecordData) {
   if (p.sni || p.flowSni) return 'TLS SNI: '+(p.sni || p.flowSni);
   if (p.observedDns) return 'Observed DNS: '+p.observedDns.name;
@@ -31,6 +33,8 @@ export function useCapture(showMonitor = false, showAlerts = false) {
   const [sourceNames,setSourceNames] = useState<Record<string,string>>({});
   const [offset,setOffset] = useState(0);
   const socket = useRef<WebSocket | null>(null);
+  const admin = useAdministrator(socket);
+  const {command,receive,reset} = admin;
   const [connected, connect] = useState(false);
   const [running, run] = useState(false);
   const stopping = useRef(false);
@@ -69,11 +73,14 @@ export function useCapture(showMonitor = false, showAlerts = false) {
         fail('');
         ws.send(JSON.stringify({type:'control',command:'history'}));
         ws.send(JSON.stringify({type:'control',command:'list_sources'}));
+        ws.send(JSON.stringify({type:'control',command:'admin_status'}));
       };
       ws.onmessage = event => {
         if (closed) return;
         try {
-          const data: CaptureMessage = JSON.parse(event.data);
+          const message = JSON.parse(event.data);
+          if (receive(message)) return;
+          const data: CaptureMessage = message;
           if (data.type === 'monitor') { setMonitor(data); return; }
           if (data.type === 'sources') {
             setMode(data.mode);
@@ -121,14 +128,14 @@ export function useCapture(showMonitor = false, showAlerts = false) {
       };
       ws.onclose = event => {
         if (closed) return;
-        connect(false); run(false); wait(false); list([]);
+        reset(); connect(false); run(false); wait(false); list([]);
         if (event.reason) fail(event.reason);
         timer = setTimeout(open, 1200);
       };
     }
     open();
     return () => { closed = true; clearTimeout(timer); socket.current?.close(); };
-  }, []);
+  }, [receive,reset]);
 
   useEffect(() => {
     if (!connected || !showMonitor) return;
@@ -136,13 +143,8 @@ export function useCapture(showMonitor = false, showAlerts = false) {
     refresh();
     const timer = setInterval(refresh, 2000);
     return () => clearInterval(timer);
-  }, [connected,showMonitor,showAlerts,offset,eventOffset,deviceFilter,eventFilter]);
+  }, [connected,showMonitor,showAlerts,offset,eventOffset,deviceFilter,eventFilter,command]);
 
-  function command(command: string, fields = {}) {
-    if (socket.current?.readyState !== WebSocket.OPEN) return false;
-    socket.current.send(JSON.stringify({ type: 'control', command, ...fields }));
-    return true;
-  }
   function capture(start: boolean) {
     if (pending) return;
 
@@ -152,6 +154,6 @@ export function useCapture(showMonitor = false, showAlerts = false) {
       fail('');
     }
   }
-  return { monitor, eventFilter, setEventFilter, packetEvent, setPacketEvent, deviceFilter, setDeviceFilter, packetDevice, setPacketDevice, sourceIds, sourceNames, eventOffset, setEventOffset, offset, setOffset, connected, running, pending, error, sources, selected, protocol, setProtocol, activeDns, stats, packets, visible, query, setQuery, mode, command, capture };
+  return { admin, monitor, eventFilter, setEventFilter, packetEvent, setPacketEvent, deviceFilter, setDeviceFilter, packetDevice, setPacketDevice, sourceIds, sourceNames, eventOffset, setEventOffset, offset, setOffset, connected, running, pending, error, sources, selected, protocol, setProtocol, activeDns, stats, packets, visible, query, setQuery, mode, command, capture };
 }
 export type Capture = ReturnType<typeof useCapture>;

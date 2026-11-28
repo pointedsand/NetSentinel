@@ -1,3 +1,6 @@
+import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { Administrator } from './administrator.mjs';
 import { Monitor } from './monitor.mjs';
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
@@ -24,7 +27,7 @@ function filterArgs(filter = {}) {
 }
 
 export function serve({ executable, mode, source, sources = [source], sourceLabels, monitor = new Monitor(), port = 8080, dns = false,
-                        origin = 'http://localhost:5173' }) {
+                        credentialFile, origin = 'http://localhost:5173' }) {
   if (!executable || !source || !['--interface','--replay'].includes(mode)) throw Error('invalid capture source');
   const history = new PacketHistory();
   let activeDns = dns, names, resolverSource;
@@ -41,8 +44,20 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
   monitor.resolveNeighbor = (source,ip,id) => resolver(source)?.get(ip,id+'|'+ip);
   let child, client;
   let selected = 0;
-  const server = new WebSocketServer({ host: '127.0.0.1', port, maxPayload: 4096,
-    perMessageDeflate: false, verifyClient: info => !info.origin || info.origin === origin });
+  const admin = new Administrator(credentialFile);
+  const frontend = new URL(origin);
+  if (!['127.0.0.1','localhost','[::1]'].includes(frontend.hostname) ||
+      !['http:','https:'].includes(frontend.protocol) || frontend.origin !== origin)
+    throw Error('Expected an exact loopback frontend origin.');
+  const allowed = req => req.headers.origin === origin &&
+    ['127.0.0.1','localhost'].some(host=>req.headers.host === host+':'+http.address()?.port);
+  const http = createServer((req,res) => {
+    res.writeHead(allowed(req) ? 426 : 403,{'Cache-Control':'no-store'});
+    res.end();
+  });
+  const server = new WebSocketServer({server:http,maxPayload:4096,perMessageDeflate:false,
+    verifyClient:info=>allowed(info.req)});
+  http.listen(port,'127.0.0.1');
   let watchdog;
   function stop() {
     if (!child || watchdog) return;
@@ -62,11 +77,53 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
       socket.send(JSON.stringify(data));
     };
     socket.on('error', stop);
-    socket.on('close', () => { client = undefined; stop(); });
-    socket.on('message', raw => {
+    let challenge;
+    function revision(msg) {
+      switch (msg.command) {
+        case 'clear_packets': return JSON.stringify([history.next,history.stats.packetCount,Boolean(child)]);
+        case 'clear_events': return monitor.detector.events[0]?.id ?? '';
+        case 'active_dns': return activeDns;
+        case 'monitor_rules': return JSON.stringify(monitor.detector.rules);
+        case 'device_preference': {
+          const d = monitor.inventory.devices.get(msg.id);
+          return JSON.stringify([d?.label,d?.trusted]);
+        }
+      }
+    }
+    socket.on('close', () => { admin.lock(); client = undefined; stop(); });
+    socket.on('message', async raw => {
+      let msg;
       try {
-        const msg = JSON.parse(raw);
-        if (msg.type !== 'control') throw Error('expected control');
+        try { msg = JSON.parse(raw); } catch { throw Error('Invalid JSON command.'); }
+        if (msg?.type !== 'control' || typeof msg.command !== 'string') throw Error('expected control');
+        if (msg.command === 'admin_resume') {
+          const pending = challenge;
+          challenge = undefined;
+          if (!pending || msg.challenge !== pending.id || pending.generation !== admin.generation || pending.until <= Date.now() ||
+              pending.revision !== revision(pending.msg) || !admin.record || !admin.permits(msg.token))
+            throw Error('Action expired or changed. Review it and try again.');
+          msg = {...pending.msg,token:msg.token};
+        } else if (msg.command.startsWith('admin_')) {
+          const result = await admin.command(msg);
+          send({...result,requestId:msg.requestId});
+          return;
+        }
+        if (['monitor_rules','device_preference','active_dns','clear_packets','clear_events'].includes(msg.command) &&
+            !admin.permits(msg.token)) {
+          challenge = {id:randomUUID(),msg,revision:revision(msg),generation:admin.generation,until:Date.now()+5*60_000};
+          send({type:'admin_required',challenge:challenge.id,requestId:msg.requestId});
+          return;
+        }
+        if (msg.command === 'clear_events') {
+          if (msg.newest !== (monitor.detector.events[0]?.id ?? '') || msg.total !== monitor.detector.events.length)
+            throw Error('Security history changed. Review it before deleting.');
+          if (monitor.store?.error) throw Error(monitor.store.error);
+          monitor.detector.events = [];
+          monitor.changed();
+          await monitor.store?.flush();
+          if (monitor.store?.error) throw Error(monitor.store.error);
+          send(monitor.view()); return;
+        }
         if (['monitor','device_preference','monitor_rules','ack_event'].includes(msg.command)) { send(monitor.command(msg)); return; }
         if (msg.command === 'active_dns' && typeof msg.enabled === 'boolean') {
           activeDns=msg.enabled;
@@ -150,10 +207,14 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
           send({...(final ?? history.message([])), captureState:'PAUSED', failed:true, failureMessage:message});
           send({type:'error', message});
         });
-      } catch (e) { send({type:'error', message:e.message}); }
+      } catch (e) {
+        const credentialRequest = typeof msg?.command === 'string' && msg.command.startsWith('admin_') && msg.command !== 'admin_resume';
+        send({type:credentialRequest ? 'admin_error' : 'error',requestId:msg?.requestId,message:e.message});
+      }
     });
   });
   return { server, async close() {
+    admin.lock();
     const stopped = child && once(child,'close').catch(() => {});
     monitor.stop();
     activeDns = false;
@@ -162,6 +223,7 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
     stop();
     client?.terminate();
     server.close();
+    http.close();
     await stopped;
     await monitor.store?.flush();
   } };
