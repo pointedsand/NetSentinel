@@ -52,7 +52,18 @@ async function openLargeArchive() {
   await navigate('Logs');
   await button('Refresh Archives').click();
   await button('Open '+largeArchive).click();
-  await page.getByText(/^30000 packet records/).waitFor();
+  const count = page.getByText('30,000 packet records',{exact:true});
+  await count.waitFor();
+  const [close,records,refresh,folder,toolbar,heading] = await Promise.all([
+    button('Close log'),count,button('Refresh Archives'),button('Open Logs Folder'),
+    page.locator('.logs-management-toolbar'),page.locator('.imported-log h2')
+  ].map(el=>el.boundingBox()));
+  for (const [left,right] of [[close,records],[refresh,folder]]) {
+    assert.ok(Math.abs(left.y+left.height/2-right.y-right.height/2)<=1,'Archive controls must share a row');
+    assert.ok(Math.abs(right.x-left.x-left.width-8)<=1,'Expected an eight-pixel gap');
+  }
+  assert.ok(heading.y+heading.height<=close.y,'Archive heading must precede the summary');
+  assert.ok(Math.abs(toolbar.x+toolbar.width-folder.x-folder.width)<=1,'Archive buttons must align right');
   assert.equal(await page.locator('.imported-log tbody tr').count(),20);
   await page.locator('.imported-log').getByRole('button',{name:'Next',exact:true}).click();
   await page.getByText('Page 2 of 1500').waitFor();

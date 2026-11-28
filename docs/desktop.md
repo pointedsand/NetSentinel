@@ -1,6 +1,6 @@
 # NetSentinel for Windows x64
 
-Install the x64 Npcap runtime separately using its official installer, then run **NetSentinel-0.1.0-demo-windows-x64-setup.exe**. The desktop installer is per-user. Node, npm, Vite, MSYS2, CMake and the Npcap SDK are build tools and are unnecessary on the demonstration computer. Driver installation can require administrator permission. [Npcap download and installation guide](https://npcap.com/guide/npcap-users-guide.html)
+Install the x64 Npcap runtime separately using its official installer, then run **NetSentinel-0.1.1-demo-windows-x64-setup.exe**. The desktop installer is per-user. Node, npm, Vite, MSYS2, CMake and the Npcap SDK are build tools and are unnecessary on the demonstration computer. Driver installation can require administrator permission. [Npcap download and installation guide](https://npcap.com/guide/npcap-users-guide.html)
 
 Open **NetSentinel** from Start. When Dashboard shows **Backend connected**, choose an authorized adapter from the source menu and click **Start capture**. Use Packets to inspect and filter frames. Stop before changing the source. Opening NetSentinel again focuses its existing window. Closing the window stops the owned worker and closes its loopback connection.
 
@@ -46,7 +46,7 @@ Set the smoke adapter to a distinctive substring of the description of an author
 npm.cmd run desktop:smoke -- "$env:LOCALAPPDATA\Programs\netsentinel\NetSentinel.exe"
 ~~~
 
-`npm run build:frontend` builds TypeScript and Vite. `npm run desktop:dev` opens the Electron development shell with built assets. `desktop:pack` builds the statically linked MinGW worker, validates its PE imports and assembles an unpacked app in `release/win-unpacked`. `desktop:installer` wraps **that directory** in NSIS and writes `release/NetSentinel-0.1.0-demo-windows-x64-setup.exe`. Repeat the packing and verification steps after changing application inputs. The [Assignment 5 guide](assignment-5/deployment.md) lists the CTest, bridge, frontend and lint commands.
+`npm run build:frontend` builds TypeScript and Vite. `npm run desktop:dev` opens the Electron development shell with built assets. `desktop:pack` builds the statically linked MinGW worker, validates its PE imports and assembles an unpacked app in `release/win-unpacked`. `desktop:installer` wraps **that directory** in NSIS and writes `release/NetSentinel-0.1.1-demo-windows-x64-setup.exe`. Repeat the packing and verification steps after changing application inputs. The [Assignment 5 guide](assignment-5/deployment.md) lists the CTest, bridge, frontend and lint commands.
 
 ## Runtime design
 
@@ -90,4 +90,4 @@ The packaged replay supplied the packet-inspection, protocol-filter, counter, se
 
 On the original demo pre-release the bridge passed 34/34, the frontend passed 62/62, and four desktop resource and window-sizing tests passed. Core CTest passed 4/4 and capture CTest passed 5/5, including four shared suites. TypeScript/Vite and ESLint succeeded. Repeat the desktop tests after the frontend build with `node --test desktop/renderer.test.mjs desktop/window-bounds.test.mjs`. Across 18 deterministic replay sessions, the packaged UI showed 4,320 captured frames, 4,096 stored packets, 224 evicted packets and zero output drops. A TCP filter hid the stored ARP records. Clearing the capture log reset the counters and preserved the capacity.
 
-If interface enumeration fails, check Npcap installation, driver access and the selected Windows adapter. Raw 802.11 and Radiotap links are unsupported. The [release notes](releases/v0.1.0-demo.md) describe the measured output drops and remaining platform limits.
+If interface enumeration fails, check Npcap installation, driver access and the selected Windows adapter. Raw 802.11 and Radiotap links are unsupported. See the [v0.1.1-demo release notes](releases/v0.1.1-demo.md) for supported workflows and platform limits.

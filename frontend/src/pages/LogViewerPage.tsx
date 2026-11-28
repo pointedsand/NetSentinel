@@ -293,12 +293,14 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
       {opening && <p role="status">Reading {opening}…</p>}
       {importError && <p role="alert">{importError}</p>}
       {imported && activeTab==='captures' && <section className="dashboard-card imported-log"><h2>{imported.local ? 'Saved archive' : 'Imported metadata'} · {imported.name}</h2>
-        <button type="button" className="tool-btn" onClick={()=>{
-          loading.current?.abort();
-          setOpening(''); setImportPage(0);
-          (onImport ?? setLocalImport)(null);
-        }}>Close log</button>
-        <p>{imported.packets.length} packet records · excluded from live statistics and security monitoring</p>
+        <div className="archive-summary">
+          <button type="button" className="tool-btn" onClick={()=>{
+            loading.current?.abort();
+            setOpening(''); setImportPage(0);
+            (onImport ?? setLocalImport)(null);
+          }}>Close log</button>
+          <span>{imported.packets.length.toLocaleString()} packet records</span>
+        </div>
         <div className="packet-table-container log-scroll"><table className="packet-table"><thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Size</th><th>Name</th></tr></thead>
         <tbody>{imported.packets.slice(importPage*pageSize,(importPage+1)*pageSize).map((p,i)=><tr key={i}><td>{p.time}</td><td>{p.source}</td><td>{p.destination}</td><td>{p.protocol}</td><td>{p.size}</td><td>{p.name}</td></tr>)}</tbody></table></div>
         <div className="log-pagination"><span>Page {importPage+1} of {Math.max(1,Math.ceil(imported.packets.length/pageSize))}</span>

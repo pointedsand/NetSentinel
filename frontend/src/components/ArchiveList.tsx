@@ -15,8 +15,10 @@ export function ArchiveList({open,opened}:{open:(entry:ArchiveEntry)=>void; open
   },[api,revision]);
   return <section aria-label="Local archives">
     <div className="logs-management-toolbar"><h2>Local archives</h2>
-      <button className="tool-btn" onClick={()=>refresh(n=>n+1)}>Refresh Archives</button>
-      <button className="tool-btn" onClick={()=>api.show().catch(e=>setError(e.message))}>Open Logs Folder</button></div>
+      <div className="archive-actions">
+        <button className="tool-btn" onClick={()=>refresh(n=>n+1)}>Refresh Archives</button>
+        <button className="tool-btn" onClick={()=>api.show().catch(e=>setError(e.message))}>Open Logs Folder</button>
+      </div></div>
     <p>Documents / NetSentinel_Logs</p>
     {error && <p role="alert">{error}</p>}
     {files.length ? <><div className="packet-table-container log-scroll"><table className="packet-table logs-table">
