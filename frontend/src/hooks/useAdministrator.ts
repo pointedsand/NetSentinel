@@ -17,6 +17,10 @@ export function useAdministrator(socket:RefObject<WebSocket|null>) {
   const serial = useRef(0);
   const lastActivity = useRef(0);
   const action = useRef(0);
+  const preferenceRequest = useRef(0);
+  const [preferencePending,setPreferencePending] = useState(false);
+  const [preferenceError,setPreferenceError] = useState('');
+  const finishPreference = useCallback(()=>{preferenceRequest.current=0; setPreferencePending(false);},[]);
   const request = useRef(0);
 
   const send = useCallback((command:string,fields:object={})=>{
@@ -26,15 +30,23 @@ export function useAdministrator(socket:RefObject<WebSocket|null>) {
   },[socket]);
   const command = useCallback((name:string,fields:object={})=>{
     if (!protectedCommands.has(name)) return send(name,fields);
+    if (name==='device_preference' && preferenceRequest.current) return false;
     action.current = ++serial.current;
-    return send(name,{...fields,token:token.current,requestId:action.current});
+    const sent = send(name,{...fields,token:token.current,requestId:action.current});
+    if (sent && name === 'device_preference') {
+      setPreferenceError('');
+      preferenceRequest.current = action.current;
+      setPreferencePending(true);
+    }
+    return sent;
   },[send]);
   const cancel = useCallback(()=>{
+    finishPreference();
     challenge.current = undefined;
     request.current = 0;
     action.current = 0;
     showDialog(false); setError(''); setBusy(false);
-  },[]);
+  },[finishPreference]);
   const reset = useCallback(()=>{
     cancel(); token.current = undefined; setStatus(null); setSetupFile(''); setSetupVerification(undefined);
   },[cancel]);
@@ -49,6 +61,10 @@ export function useAdministrator(socket:RefObject<WebSocket|null>) {
     return 0;
   },[send]);
   const receive = useCallback((data:Reply)=>{
+    if (data.requestId && data.requestId === preferenceRequest.current && (data.type === 'monitor' || data.type === 'error')) {
+      finishPreference();
+      if (data.type === 'error') {setPreferenceError(data.message || 'Device update failed.'); return true;}
+    }
     if (data.type === 'admin_required') {
       if (data.requestId === action.current) {
         token.current = undefined;
@@ -71,12 +87,16 @@ export function useAdministrator(socket:RefObject<WebSocket|null>) {
       setSetupVerification(data.setupVerifiedUntil ? {requestId:data.requestId,until:data.setupVerifiedUntil} : undefined);
       if (data.token) {
         token.current = data.token;
-        if (challenge.current) send('admin_resume',{challenge:challenge.current,token:data.token});
-        cancel();
+        if (challenge.current) {
+          send('admin_resume',{challenge:challenge.current,token:data.token,requestId:preferenceRequest.current || undefined});
+          challenge.current = undefined;
+        }
+        request.current = 0; action.current = 0;
+        showDialog(false); setError('');
       }
     }
     return true;
-  },[cancel,send]);
+  },[finishPreference,send]);
   useEffect(()=>{
     if (!status?.unlocked || !status.expiresAt) return;
     const timer = setTimeout(()=>send('admin_status'),Math.max(0,status.expiresAt-Date.now())+50);
@@ -89,7 +109,7 @@ export function useAdministrator(socket:RefObject<WebSocket|null>) {
     window.addEventListener('keydown',activity);
     return ()=>{clearTimeout(timer); window.removeEventListener('pointerdown',activity); window.removeEventListener('keydown',activity);};
   },[status?.expiresAt,status?.unlocked,send]);
-  return {status,dialog,error,busy,setupFile,setupVerification,command,manage,cancel,reset,receive,
+  return {preferenceError,preferencePending,status,dialog,error,busy,setupFile,setupVerification,command,manage,cancel,reset,receive,
     unlock:()=>{cancel();showDialog(true);}};
 }
 export type AdminControls = ReturnType<typeof useAdministrator>;

@@ -193,7 +193,7 @@ export class Monitor {
   }
   view(offset = 0,eventOffset = 0,filter = {},eventFilter = {}) {
     validatePage(offset,eventOffset,filter,eventFilter);
-    const devices = [...this.inventory.devices.values()].sort((a,b)=>b.last-a.last);
+    const devices = [...this.inventory.devices.values()].sort((a,b)=>Number(b.trusted)-Number(a.trusted) || b.last-a.last);
     const term = String(filter.term ?? '').toLowerCase().trim().slice(0,256);
     const now = Date.now();
     const present = d => d && ({...d,nameExpired:Boolean(d.hostname && !(d.nameExpires > now))});

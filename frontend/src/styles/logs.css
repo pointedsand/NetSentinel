@@ -138,7 +138,7 @@
 .log-scroll thead th { position: sticky; top: 0; z-index: 1; background: #1b2434; }
 .log-scroll .packet-table td { padding: 6px 10px; }
 .log-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 10px; }
-.log-pagination span { margin-right: auto; color: #aab7ca; font-size: 12px; }
+.log-pagination > :is(span,label) { margin-right: auto; color: #aab7ca; font-size: 12px; }
 
 .logs-view { grid-template-columns: minmax(0, 1fr); }
 .logs-view > .dashboard-card { min-width: 0; }
@@ -147,3 +147,9 @@
 .archive-summary, .archive-actions { display: flex; align-items: center; gap: 8px; }
 .archive-summary { margin-bottom: 12px; }
 .archive-actions { margin-left: auto; }
+
+.archive-row { cursor: pointer; }
+.archive-row:hover td, .archive-row:focus-visible td { background: #24354a; }
+.archive-row[aria-current="true"] td { background: #263e53; }
+.archive-row:focus-visible { outline: 2px solid #93bfe8; outline-offset: -2px; }
+.archive-page { width: 5em; padding: 3px 5px; color: inherit; background: #141e2b; border: 1px solid #465972; border-radius: 4px; font: inherit; }

@@ -157,3 +157,25 @@ describe('setup file enrollment',()=>{
     expect(last().command).toBe('admin_prepare');
   });
 });
+
+it('keeps a challenged device preference pending until its own reply or cancellation',()=>{
+  const {result,last,status,send}=client();
+  act(()=>{result.current.command('device_preference',{id:'fixture',trusted:true});});
+  const requestId=last().requestId;
+  act(()=>{
+    result.current.command('device_preference',{id:'fixture',trusted:true});
+    result.current.receive({...status,type:'monitor'});
+    result.current.receive({...status,type:'admin_required',requestId,challenge:'fixture'});
+  });
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(result.current.preferencePending).toBe(true);
+  act(()=>{result.current.manage('admin_unlock');});
+  act(()=>{result.current.receive({...status,unlocked:true,token:'fixture',requestId:last().requestId});});
+  expect(last().requestId).toBe(requestId);
+  expect(result.current.preferencePending).toBe(true);
+  act(()=>{result.current.receive({...status,type:'error',requestId,message:'Device changed.'});});
+  expect(result.current.preferencePending).toBe(false);
+  expect(result.current.preferenceError).toBe('Device changed.');
+  act(()=>{result.current.command('device_preference',{id:'fixture',trusted:true});result.current.cancel();});
+  expect(result.current.preferencePending).toBe(false);
+});

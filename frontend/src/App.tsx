@@ -104,7 +104,7 @@ function CaptureApp() {
       onClear={() => { selectDetail(null); capture.command('clear_packets'); }}
       isCapturing={capture.running} setIsCapturing={capture.capture} live disabled={!capture.connected || capture.pending}
       onNavigateDashboard={dashboard} />}
-    {page === 'devices' && <DevicesPage observed onDevicePackets={d=>{capture.setPacketEvent(null); capture.setPacketDevice(d); capture.setProtocol(''); capture.setQuery(''); selectDetail(null); navigate('packets');}} capture={capture} packets={capture.packets} onNavigateDashboard={dashboard} />}
+    {page === 'devices' && <DevicesPage observed onDevicePackets={(d,id)=>{capture.setPacketEvent(null); capture.setPacketDevice(d); capture.setProtocol(''); capture.setQuery(''); selectDetail(id ?? null); navigate('packets');}} capture={capture} packets={capture.packets} onNavigateDashboard={dashboard} />}
     {page === 'alerts' && <MonitoringAlerts capture={capture} onPackets={event=>{
       capture.setPacketDevice(null); capture.setPacketEvent(event); capture.setQuery(''); capture.setProtocol('');
       selectDetail(null); navigate('packets');

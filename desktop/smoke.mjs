@@ -51,7 +51,9 @@ async function saveArchive(format,range) {
 async function openLargeArchive() {
   await navigate('Logs');
   await button('Refresh Archives').click();
-  await button('Open '+largeArchive).click();
+  const row=page.getByRole('row',{name:'Open '+largeArchive});
+  await row.focus();
+  await row.press('Enter');
   const count = page.getByText('30,000 packet records',{exact:true});
   await count.waitFor();
   const [close,records,refresh,folder,toolbar,heading] = await Promise.all([
@@ -66,7 +68,14 @@ async function openLargeArchive() {
   assert.ok(Math.abs(toolbar.x+toolbar.width-folder.x-folder.width)<=1,'Archive buttons must align right');
   assert.equal(await page.locator('.imported-log tbody tr').count(),20);
   await page.locator('.imported-log').getByRole('button',{name:'Next',exact:true}).click();
-  await page.getByText('Page 2 of 1500').waitFor();
+  const number=page.getByLabel('Archive page number');
+  assert.equal(await number.inputValue(),'2');
+  await number.fill('1500');
+  await number.press('Enter');
+  assert.equal(await number.inputValue(),'1500');
+  assert.equal(await page.locator('.imported-log').getByRole('button',{name:'Next',exact:true}).isDisabled(),true);
+  assert.equal(await row.getAttribute('aria-current'),'true');
+  assert.ok(await row.evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('.imported-log')) & Node.DOCUMENT_POSITION_FOLLOWING)));
   await button('Close log').click();
   await page.locator('.imported-log').waitFor({state:'hidden'});
 }
@@ -239,21 +248,33 @@ async function verifyWindowSize() {
     return win.getSize();
   });
   assert.deepEqual(minimum, [1024, 650]);
-  for (const route of ['Dashboard', 'Packets', 'Devices', 'Alerts', 'Logs', 'Settings']) {
-    await navigate(route);
-    const content = page.locator('.desktop-content');
-    assert.ok(await content.evaluate(el => el.scrollWidth <= el.clientWidth + 1), route + ' overflows horizontally');
-    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    const controls = page.locator('.desktop-header').getByRole('button', { name: 'Start capture' });
-    await controls.click({ trial: true });
-    if (route === 'Settings') {
-      const limit = page.getByLabel('Packet history limit');
-      assert.equal(await limit.inputValue(),'5000');
-      await limit.click({trial:true});
-    }
-    if (route === 'Dashboard') {
-      await content.locator('.overview-previews').scrollIntoViewIfNeeded();
-      assert.ok(await content.evaluate(el => el.scrollHeight <= el.clientHeight || el.scrollTop > 0));
+  for (const [width,height] of [[bounds.width,bounds.height],[1024,650]]) {
+    await desktop.evaluate(({BrowserWindow},size)=>BrowserWindow.getAllWindows()[0].setSize(...size),[width,height]);
+    await page.waitForFunction(([w,h])=>window.outerWidth===w && window.outerHeight===h,[width,height]);
+    for (const route of ['Dashboard', 'Packets', 'Devices', 'Alerts', 'Logs', 'Settings']) {
+      await navigate(route);
+      const content = page.locator('.desktop-content');
+      assert.ok(await content.evaluate(el => el.scrollWidth <= el.clientWidth + 1), route + ' overflows horizontally');
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      const controls = page.locator('.desktop-header').getByRole('button', { name: 'Start capture' });
+      await controls.click({ trial: true });
+      if (route === 'Devices') {
+        const card=page.locator('.inventory-card').first();
+        await card.waitFor();
+        assert.ok(await card.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+        const controls=await card.locator('.inventory-card-foot button').all();
+        for (const control of controls) await control.click({trial:true});
+        assert.equal(controls.length,2);
+      }
+      if (route === 'Settings') {
+        const limit = page.getByLabel('Packet history limit');
+        assert.equal(await limit.inputValue(),'5000');
+        await limit.click({trial:true});
+      }
+      if (route === 'Dashboard') {
+        await content.locator('.overview-previews').scrollIntoViewIfNeeded();
+        assert.ok(await content.evaluate(el => el.scrollHeight <= el.clientHeight || el.scrollTop > 0));
+      }
     }
   }
   await navigate('Dashboard');
@@ -281,6 +302,14 @@ try {
   await button('Start capture').click();
   await page.waitForFunction(() => document.querySelector('[data-testid="packet-count"]')?.textContent === '3');
   await verifyWindowSize();
+  await navigate('Devices');
+  await page.getByRole('button',{name:/Details for/}).first().click();
+  await page.getByText('Associated Endpoints',{exact:true}).click();
+  await page.getByText(/^Known device addresses/).waitFor();
+  await page.getByText('Associated Packets',{exact:true}).click();
+  await page.getByRole('button',{name:/Inspect packet /}).first().click();
+  await page.getByRole('region',{name:'Packet details'}).waitFor();
+  await button('Clear device filter').click();
   await openLargeArchive();
   console.log('PASS archived 30,000 packets, cleared live history at 5,000, reopened and paged archive before and after relaunch.');
   await navigate('Packets');
@@ -342,14 +371,23 @@ try {
   assert.equal(await page.getByLabel('Packet history limit').inputValue(),'5000');
   await settings();
   await button('Unlock administrator controls').waitFor();
-  await button('Unlock administrator controls').click();
-  await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill(password);
-  await page.getByRole('dialog').getByRole('button', { name: 'Unlock', exact: true }).click();
-  await button('Lock Now').waitFor();
   await navigate('Devices');
-  await page.getByRole('button', { name: /Details for Upgrade fixture/ }).click();
+  const card=page.locator('.inventory-card').filter({hasText:'Upgrade fixture'});
+  await card.getByRole('button',{name:'Trust',exact:true}).click();
+  assert.equal(await page.locator('.device-dialog').count(),0);
+  await page.getByRole('dialog').getByLabel('Password', {exact:true}).fill(password);
+  await page.getByRole('dialog').getByRole('button',{name:'Unlock',exact:true}).click();
+  await card.getByRole('button',{name:'Untrust',exact:true}).waitFor();
+  await card.getByRole('button',{name:'Upgrade fixture',exact:true}).dblclick();
+  const editor=page.getByRole('textbox',{name:'Edit device name'});
+  await editor.fill('Persisted fixture');
+  await editor.press('Enter');
+  await page.getByRole('button',{name:/Details for Persisted fixture/}).click();
+  assert.equal(await page.getByLabel('Trust status').inputValue(),'trusted');
+  await page.getByLabel('Device label').fill('Persisted fixture detail');
+  await button('Save changes').click();
+  await page.getByText('Preferences saved.').waitFor();
   await page.getByLabel('Device label').fill('Persisted fixture');
-  await page.getByLabel('Trust status').selectOption('trusted');
   await button('Save changes').click();
   await page.getByText('Preferences saved.').waitFor();
   await button('Close device details').click();

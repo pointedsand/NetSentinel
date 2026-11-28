@@ -18,7 +18,8 @@ test('on-link evidence, scoped identities, randomization and durable preferences
   assert.equal(observe('192.0.2.1','ff:ff:ff:ff:ff:ff'),undefined);
   const {device} = observe('192.0.2.2');
   assert.equal(observe('fe80::1').fresh,false);
-  m.command({command:'device_preference',id:device.id,label:'Laptop',trusted:true});
+  m.command({command:'device_preference',id:device.id,trusted:true});
+  m.command({command:'device_preference',id:device.id,label:'Laptop'});
   assert.equal(observe('192.0.2.2','02:00:00:00:00:02').device.trusted,false);
   await m.store.flush();
   const next = new Monitor({store:await openStore(file)});
