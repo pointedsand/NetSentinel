@@ -2,6 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { LogViewerPage } from '../LogViewerPage';
+import { NetworkAuthorizationPanel } from '../../components/NetworkAuthorizationPanel';
 import { SettingsPage } from '../SettingsPage';
 import { parseStartupConfig, SAFE_DEFAULT_CONFIG } from '../startupConfig';
 
@@ -180,24 +181,15 @@ describe('UC12: Configuration Startup (SettingsPage)', () => {
     );
   });
 
-  it('provides account email and password forms without claiming changes were saved', () => {
+  it('keeps credential management unavailable while the backend is disconnected', () => {
     render(<SettingsPage />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Account' }));
-
-    expect(screen.getByRole('heading', { name: 'Account Settings' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Change email' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Change password' })).toBeTruthy();
-
-    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'new-password-1' } });
-    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'different-password' } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Update password' }).closest('form')!);
-
-    expect(screen.getByRole('status').textContent).toMatch(/passwords don’t match/i);
+    fireEvent.click(screen.getByRole('tab', { name: 'Access Control' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Connect to the local bridge');
+    expect(screen.queryByLabelText('New password')).toBeNull();
   });
 
-  it('lets the user add and select a network in Account settings without claiming it was verified', () => {
-    render(<SettingsPage />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Account' }));
+  it('lets the user add and select a network in the sample network panel without claiming it was verified', () => {
+    render(<NetworkAuthorizationPanel mode="manage" />);
     fireEvent.click(screen.getByRole('button', { name: '+ Add a network' }));
     fireEvent.change(screen.getByLabelText('Network name (SSID)'), { target: { value: 'My-Home-WiFi' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add SSID' }));

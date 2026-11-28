@@ -19,9 +19,9 @@ test('fixture remains detectable behind a TCP filter; acknowledgment, trust and 
   let eventId;
   for (let run=0;run<2;run++) {
     const monitor = new Monitor({store:await openStore(file)});
-    const service = serve({source,mode:'--replay',port:0,executable:process.env.NETSENTINEL_BIN||'netsentinel',monitor});
+    const service = serve({credentialFile:join(dir,'admin.json'),source,mode:'--replay',port:0,executable:process.env.NETSENTINEL_BIN||'netsentinel',monitor});
     await once(service.server,'listening');
-    const client = new WebSocket('ws://127.0.0.1:'+service.server.address().port);
+    const client = new WebSocket('ws://127.0.0.1:'+service.server.address().port,{origin:'http://localhost:5173'});
     try {
       await once(client,'open');
       const send = (command,fields={}) => client.send(JSON.stringify({type:'control',command,...fields}));

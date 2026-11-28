@@ -14,12 +14,12 @@ test('commands, repeated capture and controller reconnect', {timeout:15000}, asy
   t.after(() => rm(dir,{recursive:true,force:true}));
   const path = join(dir,'demo.pcap');
   execFileSync(process.execPath,[fileURLToPath(new URL('./demo-pcap.mjs',import.meta.url)),path]);
-  const app = serve({executable:process.env.NETSENTINEL_BIN || 'netsentinel',port:0,mode:'--replay',source:path});
+  const app = serve({credentialFile:join(dir,'admin.json'),executable:process.env.NETSENTINEL_BIN || 'netsentinel',port:0,mode:'--replay',source:path});
   t.after(() => app.close());
   await once(app.server,'listening');
   const url = 'ws://127.0.0.1:'+app.server.address().port;
   async function connect() {
-    const socket = new WebSocket(url);
+    const socket = new WebSocket(url,{origin:'http://localhost:5173'});
     await once(socket,'open');
     t.after(() => socket.terminate());
     return socket;

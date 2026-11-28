@@ -39,6 +39,8 @@ interface LogViewerPageProps {
   importedLog?: ImportedLog | null;
   onImport?: (log: ImportedLog) => void;
   monitoringEvents?: import('../types').SecurityEvent[];
+  eventTotal?: number;
+  onDeleteEvents?: (newest:string,total:number)=>void;
   archiveUnavailable?: boolean;
   packets?: Packet[];
   alerts?: AlertItem[];
@@ -112,7 +114,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   packets,
   alerts,
   setAlerts,
-  archiveUnavailable = false, importedLog, onImport, monitoringEvents,
+  archiveUnavailable = false, importedLog, onImport, monitoringEvents, eventTotal, onDeleteEvents,
   initialLogs = DEFAULT_LOGS,
   initialSecurityEvents = DEFAULT_SECURITY_EVENTS,
 }) => {
@@ -144,7 +146,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   const captureLogs = useMemo(() => packets
     ? createCaptureLogs(packets).filter((log) => !removedLogIds.has(log.id))
     : logs, [logs, packets, removedLogIds]);
-  const activeCount = activeTab === 'captures' ? captureLogs.length : securityEvents.length;
+  const activeCount = activeTab === 'captures' ? captureLogs.length : (eventTotal ?? securityEvents.length);
   const filteredLogs = captureLogs.filter((log) => (
     log.fileName.toLowerCase().includes(searchText.trim().toLowerCase()) &&
     (protocolFilter === 'All' || log.protocol === protocolFilter)
@@ -152,7 +154,13 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   const totalStorageMB = captureLogs.reduce((total, log) => total + log.sizeMB, 0);
 
   // Clears the log history after the user confirms the destructive action.
+  const [deleteTarget,setDeleteTarget] = useState<{newest:string,total:number}>();
   const handleConfirmDelete = () => {
+    if (activeTab === 'security' && onDeleteEvents && deleteTarget) {
+      onDeleteEvents(deleteTarget.newest,deleteTarget.total);
+      setShowConfirmModal(false);
+      return;
+    }
     if (activeTab === 'captures') {
       if (packets) {
         // Hide derived summaries locally; do not mutate the packet stream shared with other pages.
@@ -242,8 +250,11 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
           <button
             type="button"
             className="tool-btn"
-            onClick={() => setShowConfirmModal(true)}
-            disabled={archiveUnavailable || activeCount === 0}
+            onClick={() => {
+              setDeleteTarget({newest:monitoringEvents?.[0]?.id ?? '',total:activeCount});
+              setShowConfirmModal(true);
+            }}
+            disabled={(archiveUnavailable && (activeTab === 'captures' || !onDeleteEvents)) || activeCount === 0}
             style={{
               backgroundColor: activeCount === 0 ? undefined : 'rgba(239, 68, 68, 0.16)',
               color: activeCount === 0 ? undefined : '#f87171',

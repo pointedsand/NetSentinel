@@ -5,16 +5,18 @@
  * frontend does not load config.json from disk or apply values to the backend.
  */
 import React, { useState } from 'react';
-import { NetworkAuthorizationPanel } from '../components/NetworkAuthorizationPanel';
+import { AccessControl } from '../components/AccessControl';
+import type { AdminControls } from '../hooks/useAdministrator';
 import { parseStartupConfig, type StartupConfig } from './startupConfig';
 
 interface SettingsPageProps {
+  admin?: AdminControls;
   monitoring?: React.ReactNode;
   rawConfigJson?: string;
   onNavigateDashboard?: () => void;
 }
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNavigateDashboard, monitoring }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNavigateDashboard, monitoring, admin }) => {
   // Parse the startup config once and use it as the initial form state.
   const initial = parseStartupConfig(rawConfigJson);
 
@@ -26,27 +28,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNav
 
   // Tracks whether the loaded configuration is valid or has fallen back to safe defaults.
   const [isError, setIsError] = useState<boolean>(initial.isError);
-  const [activeSection, setActiveSection] = useState<'monitoring' | 'account'>('monitoring');
-  const [accountMessage, setAccountMessage] = useState('');
+  const [activeSection, setActiveSection] = useState<'monitoring' | 'access'>('monitoring');
 
   // Updates the local form status; persistence and backend application are not wired yet.
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setIsError(false);
     setBanner('Configuration saved and applied to active monitoring engine.');
-  };
-
-  const handleAccountUpdate = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    if (
-      e.currentTarget.name === 'change-password' &&
-      formData.get('newPassword') !== formData.get('confirmNewPassword')
-    ) {
-      setAccountMessage('Those passwords don’t match. Please try again.');
-      return;
-    }
-    setAccountMessage('Account services aren’t connected yet, so your changes haven’t been saved.');
   };
 
   return (
@@ -61,10 +49,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNav
         </div>
         <div className="page-heading-title">
           <span className="eyebrow">SYSTEM PREFERENCES (UC12)</span>
-          <h1>{activeSection === 'account' ? 'Account Settings' : 'Configuration Settings'}</h1>
+          <h1>{activeSection === 'access' ? 'Access Control' : 'Configuration Settings'}</h1>
           <p>
-            {activeSection === 'account'
-              ? 'Manage your NetSentinel sign-in details.'
+            {activeSection === 'access'
+              ? 'Manage administrator protection for this computer.'
               : 'Review your network monitoring preferences.'}
           </p>
         </div>
@@ -83,90 +71,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ rawConfigJson, onNav
         <button
           type="button"
           role="tab"
-          aria-selected={activeSection === 'account'}
-          onClick={() => {
-            setAccountMessage('');
-            setActiveSection('account');
-          }}
+          aria-selected={activeSection === 'access'}
+          onClick={() => setActiveSection('access')}
         >
-          Account
+          Access Control
         </button>
       </div>
 
-      {activeSection === 'account' ? (
-        <section className="dashboard-card settings-account-card">
-          <div className="settings-account-heading">
-            <div>
-              <span className="eyebrow">SIGN-IN DETAILS</span>
-              <h2>Account information</h2>
-              <p>Update the email address and password used to sign in.</p>
-            </div>
-            <span className="account-status">ACCOUNT NOT CONNECTED</span>
-          </div>
-
-          <p className="settings-account-notice">
-            Account services aren’t connected in this build. Submitted changes won’t be saved.
-          </p>
-
-          <form className="settings-account-form" name="change-email" onSubmit={handleAccountUpdate}>
-            <h3>Change email</h3>
-            <div className="form-row">
-              <label htmlFor="new-account-email">New email address</label>
-              <input id="new-account-email" name="newEmail" type="email" autoComplete="email" required />
-            </div>
-            <div className="form-row">
-              <label htmlFor="email-current-password">Confirm with your password</label>
-              <input
-                id="email-current-password"
-                name="currentPassword"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <button type="submit" className="btn-export">Update email</button>
-          </form>
-
-          <form className="settings-account-form" name="change-password" onSubmit={handleAccountUpdate}>
-            <h3>Change password</h3>
-            <div className="form-row">
-              <label htmlFor="password-current-password">Current password</label>
-              <input
-                id="password-current-password"
-                name="currentPassword"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <div className="form-row">
-              <label htmlFor="new-account-password">New password</label>
-              <input
-                id="new-account-password"
-                name="newPassword"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
-            </div>
-            <div className="form-row">
-              <label htmlFor="confirm-new-account-password">Confirm new password</label>
-              <input
-                id="confirm-new-account-password"
-                name="confirmNewPassword"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                required
-              />
-            </div>
-            <button type="submit" className="btn-export">Update password</button>
-          </form>
-
-          {accountMessage && <p className="settings-account-result" role="status">{accountMessage}</p>}
-          {!monitoring && <NetworkAuthorizationPanel mode="manage" />}
-        </section>
+      {activeSection === 'access' ? (
+        <AccessControl admin={admin}/>
       ) : monitoring ? monitoring : (
         <section className="dashboard-card" style={{ maxWidth: '640px' }}>
           {/* Displays whether the config was loaded successfully or replaced with default values. */}

@@ -5,66 +5,21 @@ import { App } from '../App';
 import { SIMULATED_DEVICES } from '../simulationData';
 
 function renderAppInDemoMode() {
-  const result = render(<App />);
-  fireEvent.click(screen.getByRole('button', { name: 'Explore offline simulation' }));
-  return result;
+  window.history.replaceState(null,'','/?workspace=simulation');
+  try { return render(<App />); }
+  finally { window.history.replaceState(null,'','/'); }
 }
 
-describe('Account access screen', () => {
-  it('offers sign-in and account creation before entering the app', () => {
+describe('Local workspace access', () => {
+  it('opens the Dashboard without credentials and exposes Access Control in Settings', () => {
     render(<App />);
-
-    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeTruthy();
-    expect(screen.getByLabelText('Email address')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Explore offline simulation' })).toBeTruthy();
-    expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
-    expect(screen.getByRole('heading', { name: 'Create your account' })).toBeTruthy();
-    expect(screen.getByLabelText('Confirm password')).toBeTruthy();
-  });
-
-  it('does not imply sign-in succeeded without account services and allows the demo to continue', () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'user@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'example-password' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-
-    expect(screen.getByRole('status').textContent).toMatch(/haven’t been saved/);
-    fireEvent.click(screen.getByRole('button', { name: 'Explore offline simulation' }));
-    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy();
-  });
-
-  it('checks that account creation passwords match', () => {
-    render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Demo User' } });
-    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'user@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'first-password' } });
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'second-password' } });
-    fireEvent.submit(screen.getByRole('button', { name: 'Continue' }).closest('form')!);
-
-    expect(screen.getByRole('alert').textContent).toMatch(/passwords don’t match/i);
-  });
-
-  it('moves account creation into network authorization using sample SSIDs', () => {
-    render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Create an account' }));
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Demo User' } });
-    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'user@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'valid-password' } });
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'valid-password' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-
-    expect(screen.getByRole('heading', { name: 'Authorize a network' })).toBeTruthy();
-    expect(screen.getByText('Maple-Home-WiFi')).toBeTruthy();
-    expect(screen.getByText(/By selecting the network you’re connected to, you confirm/)).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('checkbox', { name: /Maple-Home-WiFi/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Continue with selected networks' }));
-
-    expect(screen.getByRole('heading', { name: 'Network selected' })).toBeTruthy();
-    expect(screen.getByText(/haven’t been saved/)).toBeTruthy();
+    const nav = screen.getByRole('navigation',{name:'Main navigation'});
+    expect(within(nav).getByRole('button',{name:'Dashboard'})).toHaveAttribute('aria-current','page');
+    expect(screen.queryByLabelText('Password')).toBeNull();
+    fireEvent.click(within(nav).getByRole('button',{name:'Settings'}));
+    fireEvent.click(screen.getByRole('tab',{name:'Access Control'}));
+    expect(screen.getByRole('heading',{name:'Administrator Protection'})).toBeVisible();
+    expect(screen.queryByRole('tab',{name:'Account'})).toBeNull();
   });
 });
 
@@ -123,7 +78,7 @@ describe('Packets tab virtualization', () => {
 });
 
 describe('Logs and Settings navigation', () => {
-  it('changes the shared header while preserving page-specific actions and account settings', () => {
+  it('changes the shared header while preserving page-specific actions and access settings', () => {
     renderAppInDemoMode();
     const nav = screen.getByRole('navigation',{name:'Main navigation'});
     const header = screen.getByRole('banner',{name:'Workspace'});
@@ -132,8 +87,8 @@ describe('Logs and Settings navigation', () => {
     expect(screen.getByRole('button',{name:'Upload'})).toBeVisible();
     fireEvent.click(within(nav).getByRole('button',{name:'Settings'}));
     expect(within(header).getByRole('heading',{name:'Settings'})).toBeVisible();
-    fireEvent.click(screen.getByRole('tab',{name:'Account'}));
-    expect(screen.getByRole('heading',{name:'Change password'})).toBeVisible();
+    fireEvent.click(screen.getByRole('tab',{name:'Access Control'}));
+    expect(screen.getByRole('heading',{name:'Administrator Protection'})).toBeVisible();
   });
 });
 
