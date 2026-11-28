@@ -5,11 +5,13 @@ import { downloadFile } from '../services/browserFiles';
  * Implements the browser-side log management view. Capture rows are summaries
  * derived from simulated packets; archive metadata is not backed by local files.
  */
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AlertItem } from './alertTypes';
 import { createSeedAlerts } from './alertTypes';
 import { SIMULATED_DEVICES } from '../simulationData';
-import { importPackets, type ImportedLog } from './importPackets';
+import { ArchiveList } from '../components/ArchiveList';
+import type { ArchiveEntry } from '../services/archives';
+import { readArchive, readExternal, type ImportedLog } from './importPackets';
 import type { Packet } from '../types';
 
 // Describes one archived packet capture stored in the local log history.
@@ -37,7 +39,7 @@ interface SecurityEventRecord {
 // Allows the page to receive an initial list of logs for testing or integration scenarios.
 interface LogViewerPageProps {
   importedLog?: ImportedLog | null;
-  onImport?: (log: ImportedLog) => void;
+  onImport?: (log: ImportedLog | null) => void;
   monitoringEvents?: import('../types').SecurityEvent[];
   eventTotal?: number;
   onDeleteEvents?: (newest:string,total:number)=>void;
@@ -204,15 +206,35 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   const pageSize = 20;
   const [importPage, setImportPage] = useState(0);
   const imported = importedLog ?? localImport;
-  const loadFile = async (file?: File) => {
-    if (!file) return;
+  const archiveAPI = archiveUnavailable ? window.netSentinelArchives : undefined;
+  const loading = useRef<AbortController | null>(null);
+  const [opening,setOpening]=useState('');
+  const [opened,setOpened]=useState<{name:string;stamp:string;count:number}>();
+  useEffect(()=>()=>loading.current?.abort(),[]);
+  async function inspect(name:string,read:(signal:AbortSignal)=>Promise<ImportedLog>,entry?:ArchiveEntry) {
+    loading.current?.abort();
+    const controller=new AbortController();
+    loading.current=controller;
+    setOpening(name);setImportError('');
     try {
-      if (file.size > 4 * 1024 * 1024) throw Error('Maximum import size is 4 MiB.');
-      const result = importPackets(file.name, await file.text());
-      (onImport ?? setLocalImport)(result);
-      setImportPage(0); setImportError('');
-    } catch (error) { setImportError(error instanceof Error ? error.message : 'Import failed'); }
-  };
+      const log=await read(controller.signal);
+      if (controller.signal.aborted) return;
+      if (entry) {
+        log.local=true;
+        setOpened({name:entry.name,stamp:entry.stamp,count:log.packets.length});
+      }
+      (onImport ?? setLocalImport)(log);
+      setImportPage(0);setActiveTab('captures');
+    } catch (error) {if (!controller.signal.aborted) setImportError((error as Error).message);}
+    finally {if (!controller.signal.aborted) setOpening('');}
+  }
+  function loadFile(file?:File) {
+    if (file) void inspect(file.name,signal=>readExternal(file,signal));
+  }
+  function openLocal(entry:ArchiveEntry) {
+    if (archiveAPI) void inspect(entry.name,signal=>readArchive(entry.name,entry.size,
+      (offset,length)=>archiveAPI.read(entry.name,entry.stamp,offset,length),signal),entry);
+  }
   const handleUploadClick = () => {
     // Previous native-picker behavior:
     // The picker is currently a UI affordance only; chosen file contents are not imported.
@@ -220,13 +242,13 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   };
 
   return (
-    <div className="dashboard">
+    <div className="dashboard logs-view">
       <div className="dashboard-heading page-heading-centered logs-heading">
         <div className="page-heading-back" aria-hidden="true" />
         <div className="page-heading-title">
           <span className="eyebrow">STORAGE & LOG MANAGEMENT (UC11)</span>
           <h1>Log Viewer</h1>
-          <p>{archiveUnavailable ? 'Import a packet CSV or JSON export to inspect it here. Review the full security event history in Alerts.' : 'Manage archived capture files and clear historical logs to free local storage.'}</p>
+          <p>{archiveAPI ? 'Browse saved packet archives and security event history.' : archiveUnavailable ? 'Import a packet CSV or JSON export to inspect it here. Review the full security event history in Alerts.' : 'Manage archived capture files and clear historical logs to free local storage.'}</p>
         </div>
 
         <div className="page-heading-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -243,7 +265,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
             className="tool-btn"
             onClick={handleUploadClick}
           >
-            Upload
+            {archiveAPI ? 'Import External Log' : 'Upload'}
           </button>
 
           {/* Button opens the confirmation modal before clearing archived packet captures. */}
@@ -268,9 +290,17 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
         </div>
       </div>
 
+      {opening && <p role="status">Reading {opening}…</p>}
       {importError && <p role="alert">{importError}</p>}
-      {imported && <section className="dashboard-card imported-log"><h2>Imported metadata · {imported.name}</h2>
-        <p>{imported.packets.length} imported rows · excluded from live statistics and security monitoring</p>
+      {imported && activeTab==='captures' && <section className="dashboard-card imported-log"><h2>{imported.local ? 'Saved archive' : 'Imported metadata'} · {imported.name}</h2>
+        <div className="archive-summary">
+          <button type="button" className="tool-btn" onClick={()=>{
+            loading.current?.abort();
+            setOpening(''); setImportPage(0);
+            (onImport ?? setLocalImport)(null);
+          }}>Close log</button>
+          <span>{imported.packets.length.toLocaleString()} packet records</span>
+        </div>
         <div className="packet-table-container log-scroll"><table className="packet-table"><thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Size</th><th>Name</th></tr></thead>
         <tbody>{imported.packets.slice(importPage*pageSize,(importPage+1)*pageSize).map((p,i)=><tr key={i}><td>{p.time}</td><td>{p.source}</td><td>{p.destination}</td><td>{p.protocol}</td><td>{p.size}</td><td>{p.name}</td></tr>)}</tbody></table></div>
         <div className="log-pagination"><span>Page {importPage+1} of {Math.max(1,Math.ceil(imported.packets.length/pageSize))}</span>
@@ -305,7 +335,8 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
           </button>
         </div>
 
-        {activeTab === 'captures' && (
+        {activeTab === 'captures' && archiveAPI && <ArchiveList open={openLocal} opened={opened}/>}
+        {activeTab === 'captures' && !archiveAPI && (
           <>
             <div className="logs-management-toolbar">
               <input

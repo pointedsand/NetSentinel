@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { validateRules } from './detections.mjs';
+import { defaultHistoryLimit, validateHistoryLimit } from './history.mjs';
 import { normalizeMac } from './inventory.mjs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -7,6 +8,28 @@ import { homedir } from 'node:os';
 export function defaultStateFile() {
   const dir = process.env.LOCALAPPDATA || process.env.XDG_STATE_HOME || join(homedir(),'.local','state');
   return join(dir,'NetSentinel','monitor-v1.json');
+}
+
+async function writeState(file,json) {
+  await mkdir(dirname(file),{recursive:true});
+  const temporary = file + '.' + process.pid + '.tmp';
+  await writeFile(temporary,json,{mode:0o600});
+  await rename(temporary,file);
+}
+
+export async function openHistoryPreferences(stateFile) {
+  const file = stateFile + '.preferences.json';
+  let limit = defaultHistoryLimit;
+  try {
+    const saved = JSON.parse(await readFile(file,'utf8'));
+    if (saved?.version === 1) limit = validateHistoryLimit(saved.historyLimit);
+  } catch (error) {
+    if (error.code && error.code !== 'ENOENT') throw error;
+  }
+  return { limit, async save(value) {
+    validateHistoryLimit(value);
+    await writeState(file,JSON.stringify({version:1,historyLimit:value}));
+  }};
 }
 
 export async function openStore(file) {
@@ -37,10 +60,7 @@ export async function openStore(file) {
     writing = (async () => {
       try {
         const json = JSON.stringify(snapshot());
-        await mkdir(dirname(file),{recursive:true});
-        const temporary = file + '.' + process.pid + '.tmp';
-        await writeFile(temporary,json,{mode:0o600});
-        await rename(temporary,file);
+        await writeState(file,json);
         error = '';
       } catch { error = 'Could not save monitoring state to disk.'; }
     })();

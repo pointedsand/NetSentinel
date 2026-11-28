@@ -4,6 +4,7 @@ import { once, on } from 'node:events';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawn } from 'node:child_process';
 import { WebSocket } from 'ws';
 import { serve } from './server.mjs';
 
@@ -22,6 +23,13 @@ function pcap(linkType, frames) {
 }
 
 for (const [link, count] of [[1,1], [127,1], [1,10000]]) test('WebSocket replay ' + link + '/' + count, {timeout:10000}, async t => {
+  const mailboxLimit = count === 10000 ? 16 : 256;
+  const previousLimit = process.env.NETSENTINEL_BUFFER;
+  process.env.NETSENTINEL_BUFFER = String(mailboxLimit);
+  t.after(()=>{
+    if (previousLimit===undefined) delete process.env.NETSENTINEL_BUFFER;
+    else process.env.NETSENTINEL_BUFFER=previousLimit;
+  });
   const dir = await mkdtemp(join(tmpdir(), 'netsentinel-'));
   t.after(() => rm(dir, {recursive:true,force:true}));
   const path = join(dir,'input.pcap');
@@ -36,10 +44,11 @@ for (const [link, count] of [[1,1], [127,1], [1,10000]]) test('WebSocket replay 
   await once(client,'open');
   const packets = [];
   const final = new Promise((resolve,reject) => {
+    client.once('close',(code,reason)=>reject(Error('Controller closed '+code+' '+reason)));
     client.on('message', data => {
       const msg = JSON.parse(data);
       if (msg.packets) {
-        if (msg.packets.length > 256) { reject(Error('batch overflow')); return; }
+        if (msg.packets.length > mailboxLimit) { reject(Error('batch overflow')); return; }
         packets.push(...msg.packets);
       }
       if (msg.captureState === 'PAUSED') resolve(msg);
@@ -112,4 +121,28 @@ test('DHCP and NetBIOS names reach scoped inventory through an actual pcap repla
     assert.deepEqual(view.devices.map(d=>[d.hostname,d.nameMethod]).sort(),[
       ['OFFICE','NetBIOS name response'],['desk','DHCP client hostname']]);
   } finally {client.terminate(); await app.close();}
+});
+
+test('native burst delivery reconciles accepted records under normal and stalled stdout',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'netsentinel-throughput-'));
+  t.after(()=>rm(dir,{recursive:true,force:true}));
+  const frame=Buffer.from('000102030405060708090a0b08004500001c00000000401100000a0000010a0000023039003500080000','hex');
+  for (const [count,capacity,delay] of [[3000,4096,0],[30000,256,0],[30000,256,400]]) {
+    const path=join(dir,'burst.pcap');
+    await writeFile(path,pcap(1,Array(count).fill(frame)));
+    const proc=spawn(process.env.NETSENTINEL_BIN || 'netsentinel',['--replay',path,'-','-','-','-','-'],
+      {env:{...process.env,NETSENTINEL_BUFFER:String(capacity)},windowsHide:true});
+    const closed=once(proc,'close');
+    if (delay) await new Promise(resolve=>setTimeout(resolve,delay));
+    let text='';
+    for await (const chunk of proc.stdout) text+=chunk.toString();
+    assert.equal((await closed)[0],0);
+    const batches=text.trim().split('\n').map(line=>JSON.parse(line));
+    const final=batches.at(-1), delivered=batches.reduce((sum,b)=>sum+b.packets.length,0);
+    assert.equal(final.packetCount,count);
+    assert.equal(delivered+final.outputDrops,count);
+    if (capacity>=count) assert.equal(final.outputDrops,0);
+    if (delay) assert.ok(final.outputDrops>0);
+    t.diagnostic(JSON.stringify({count,capacity,readerDelayMs:delay,delivered,outputDrops:final.outputDrops}));
+  }
 });

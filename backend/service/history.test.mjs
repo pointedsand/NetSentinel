@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openHistoryPreferences } from './monitor-store.mjs';
 import test from 'node:test';
 import { PacketHistory } from './history.mjs';
 import { Hostnames } from './resolver.mjs';
@@ -49,4 +53,51 @@ test('overflow discards oldest stored records independently of worker drops and 
   const cleared = h.message([]);
   assert.deepEqual([cleared.packetCount, cleared.rejected, cleared.retained, cleared.evicted, cleared.outputDrops], [0,0,0,0,0]);
   assert.equal(cleared.historyCapacity, h.limit);
+});
+
+test('supported retention limits keep the newest records and cumulative totals', () => {
+  const history = new PacketHistory();
+  assert.equal(history.limit,30000);
+  const packets = Array.from({length:1000},()=>({protocol:'UDP'}));
+  for (let n=1000; n<=75000; n+=1000)
+    history.append({...history.stats,packetCount:n,packets},'fixture');
+  for (const [limit,retained] of [[30000,30000],[50000,30000],[10000,10000],[5000,5000]]) {
+    history.resize(limit);
+    assert.deepEqual(history.rows.map(p=>p.id),Array.from({length:retained},(_,i)=>75001-retained+i));
+    assert.equal(history.evicted,75000-retained);
+    assert.equal(history.stats.packetCount,75000);
+    assert.equal(history.stats.outputDrops,0);
+  }
+  for (const limit of [null,0,-1,4096,50001,'5000']) assert.throws(()=>history.resize(limit));
+  assert.equal(history.limit,5000);
+});
+
+test('one persistent preference works alongside an existing monitoring store',async t=>{
+  const dir = await mkdtemp(join(tmpdir(),'retention-'));
+  t.after(()=>rm(dir,{recursive:true,force:true}));
+  const file = join(dir,'monitor-v1.json');
+  const original = JSON.stringify({version:1,devices:[],events:[]});
+  await writeFile(file,original);
+  const preferences = await openHistoryPreferences(file);
+  assert.equal(preferences.limit,30000);
+  await preferences.save(50000);
+  await assert.rejects(preferences.save('5000'));
+  assert.equal((await openHistoryPreferences(file)).limit,50000);
+  assert.equal(await readFile(file,'utf8'),original);
+  await writeFile(file+'.preferences.json',JSON.stringify({version:1,historyLimit:999999}));
+  assert.equal((await openHistoryPreferences(file)).limit,30000);
+});
+
+test('shrinking paused history leaves an existing 943 queue losses unchanged across snapshots and restarts',()=>{
+  const history=new PacketHistory();
+  const batch={...history.stats,packetCount:30943,outputDrops:943,packets:Array.from({length:30000},()=>({}))};
+  history.append(batch,'fixture');
+  history.append({...batch,packets:[]},'fixture');
+  history.resize(5000);
+  assert.deepEqual([history.stats.outputDrops,history.evicted,history.rows[0].id],[943,25000,25001]);
+  history.begin();
+  history.append({...batch,packetCount:2,outputDrops:1,packets:[{}]},'fixture');
+  assert.deepEqual([history.stats.packetCount,history.stats.outputDrops,history.evicted],[30945,944,25001]);
+  history.clear();
+  assert.deepEqual([history.stats.outputDrops,history.evicted,history.limit],[0,0,5000]);
 });

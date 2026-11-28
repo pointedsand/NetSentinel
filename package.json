@@ -1,7 +1,7 @@
 {
   "name": "netsentinel",
   "productName": "NetSentinel",
-  "version": "0.1.0-demo",
+  "version": "0.1.1-demo",
   "private": true,
   "description": "Local network capture, device inventory and security monitoring",
   "author": "NetSentinel, CS/CE 3354 Team 5",
@@ -27,7 +27,7 @@
     "asar": true,
     "directories": { "output": "release" },
     "files": [
-      "desktop/main.mjs", "desktop/renderer.mjs", "desktop/window-bounds.mjs", "frontend/dist/**/*",
+      "desktop/main.mjs", "desktop/archives.mjs", "desktop/preload.cjs", "desktop/renderer.mjs", "desktop/window-bounds.mjs", "frontend/dist/**/*",
       "backend/service/{server,administrator,monitor,monitor-store,detections,device-names,history,inventory,neighbors,observed-names,resolver}.mjs",
       "!**/backend/service/node_modules/**"
     ],

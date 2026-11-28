@@ -17,7 +17,7 @@ import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
 import { sourceName } from './deviceIdentity';
 import { useCapture } from './hooks/useCapture';
-import { CaptureControls, CaptureSource, NameResolution } from './components/CaptureControls';
+import { CaptureControls, CaptureSource, NameResolution, PacketHistorySettings } from './components/CaptureControls';
 
 export function App() {
   return new URLSearchParams(window.location.search).get('workspace') === 'simulation' ? <DemoApp /> : <CaptureApp />;
@@ -88,7 +88,7 @@ function CaptureApp() {
     status={capture.error ? 'Capture error' : !capture.connected ? 'Reconnecting' : (capture.mode==='--replay'?'Replay':'Live')+' · '+(capture.running?'Running':'Paused')}
     source={page==='dashboard' ? <CaptureSource state={capture}/> : <span className="session-source" title={capture.sourceIds[capture.selected]}>{sourceName(capture,capture.selected)}</span>}
     notice={<>{capture.error && <p role="alert" className="session-notice">{capture.error}</p>}
-      {capture.stats.outputDrops>0 && <p className="session-notice">{capture.stats.outputDrops.toLocaleString()} output packets dropped</p>}</>}>
+      {capture.recentDrops>0 && <small role="status">Worker queue full · {capture.recentDrops.toLocaleString()} newly dropped records</small>}</>}>
     <UnlockDialog admin={capture.admin}/>
     {page === 'dashboard' && <DashboardOverview navigate={navigate} packets={capture.packets} alerts={[]} capture={capture} inspect={id => { selectDetail(id); navigate('packets'); }} />}
     {page === 'packets' && capture.packetEvent && <div className="device-packet-filter">{capture.packetEvent.type} · related observations
@@ -111,7 +111,7 @@ function CaptureApp() {
     }} />}
     {page === 'logs' && <LogViewerPage monitoringEvents={capture.monitor?.events} eventTotal={capture.monitor?.eventTotal}
       onDeleteEvents={(newest,total)=>capture.command('clear_events',{newest,total})} importedLog={importedLog} onImport={setImportedLog} archiveUnavailable initialLogs={[]} initialSecurityEvents={[]} />}
-    {page === 'settings' && <SettingsPage admin={capture.admin} monitoring={<NameResolution state={capture}/>} onNavigateDashboard={dashboard} />}
+    {page === 'settings' && <SettingsPage admin={capture.admin} monitoring={<><NameResolution state={capture}/><PacketHistorySettings state={capture}/></>} onNavigateDashboard={dashboard} />}
   </AppShell>;
 }
 

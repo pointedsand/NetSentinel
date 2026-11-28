@@ -157,6 +157,7 @@
 }
 
 .packet-virtualized-container {
+  overflow-anchor: none;
   max-height: 600px;
   overflow: auto;
 }
