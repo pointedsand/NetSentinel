@@ -1,0 +1,11 @@
+﻿Started 2026-11-27T17:42:40.1538446-06:00
+Command node backend/service/browser-smoke.mjs
+Exit code 0
+Wall seconds 10.5486883
+
+Link type: Ethernet
+Link type: Ethernet
+Link type: Ethernet
+Link type: Ethernet
+PASS Edge administrator setup, cancelled and denied purge, authorized purge, lock, rotation, reconnect and disable.
+PASS Edge replay: capture, filters, reconnect, device details, trust, alerts, disk-backed import, three verified export ranges and 49-event layout fixture.

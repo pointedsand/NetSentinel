@@ -1,0 +1,14 @@
+﻿{"cpu":"Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz","logical":12,"GiB":"31.95","kernel":"10.0.26200"}
+{"EditionID":"Professional","DisplayVersion":"25H2","CurrentBuildNumber":"26200","UBR":9974}
+NpCap display version: 1.90
+wpcap.dll: 1.10.7
+Edge: 158.0.4370.45
+Firefox: 161.0
+Node: v24.22.3
+CMake: cmake version 4.4.5
+Compiler: g++.exe (Rev6, Built by MSYS2 project) 16.2.0
+Base HEAD: ab4487680216433aedb8143ce2640b129f9123fd
+Branch: feature/ui-redesign
+Core Release; capture Debug; Ninja; Windows x64; MSYS2 UCRT64
+Intel Ethernet Connection (2) I219-V; ambient traffic; non-promiscuous
+wsl : The Windows Subsystem for Linux is not installed. You 

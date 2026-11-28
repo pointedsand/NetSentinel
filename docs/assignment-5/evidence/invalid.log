@@ -1,0 +1,7 @@
+﻿Started 2026-11-27T17:32:22.6182169-06:00
+Command & $env:NETSENTINEL_BIN --interface NETSENTINEL_NONEXISTENT_ADAPTER - - - - -
+Exit code 1
+Wall seconds 0.2864513
+
+Failed to open interface: Error opening adapter: The filename, directory name, or volume label syntax is incorrect.  (123)
+{"type":"batch","packetCount":0,"activeConnections":0,"elapsedSeconds":0.0011068,"wireBytes":0,"bytes":0,"bandwidthMbps":0,"filtered":0,"rejected":0,"outputDrops":0,"protocolCounts":[0,0,0,0],"captureState":"PAUSED","failed":true,"packets":[]}

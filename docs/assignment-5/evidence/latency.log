@@ -1,0 +1,12 @@
+﻿Started 2026-11-27T17:42:57.3495263-06:00
+Command $device=((& $env:NETSENTINEL_BIN --list-interfaces | Select-String 'Intel.*Ethernet Connection' | Select-Object -First 1).Line -split "`t")[0]
+$env:NETSENTINEL_SMOKE_DEVICE=$device
+node docs/assignment-5/measure-ui.mjs
+Exit code 0
+Wall seconds 22.4996336
+
+Threshold evaluation to event insertion {"n":200,"min_ms":0.002,"median_ms":0.004,"p95_ms":0.017,"max_ms":5.656}
+Link type: Ethernet
+Bridge send to Edge receive {"n":96,"min_ms":1,"median_ms":1,"p95_ms":2,"max_ms":3}
+Oldest batched capture timestamp to dashboard DOM {"n":96,"min_ms":160.228,"median_ms":213.596,"p95_ms":232.11,"max_ms":235.717}
+Nonempty outgoing batches including final: 97 eligible RUNNING changes: 96 matched: 96

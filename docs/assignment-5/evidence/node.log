@@ -1,0 +1,61 @@
+﻿Started 2026-11-27T17:32:21.3330422-06:00
+Command npm.cmd --prefix backend/service test
+Exit code 0
+Wall seconds 8.883332
+
+
+> test
+> node --test
+
+✔ HTTP and upgrades require the exact origin and local Host, and a second controller is refused (258.663ms)
+Link type: Ethernet
+Link type: Ethernet
+✔ raw socket cannot mutate protected state; inspection, acknowledgment and replay stay public (1612.1828ms)
+✔ explicit local enrollment persists only a salted verifier and fails closed on corrupt credentials (1051.0431ms)
+✔ idle timeout, explicit lock, credential rotation and disable invalidate tokens (3150.4742ms)
+✔ rate limiting survives disconnect and recovers after cooldown; in-flight unlock can be cancelled (2067.8092ms)
+✔ file selection confirms the current proof without granting access; expired and renewed files cannot enroll (280.8077ms)
+✔ setup-file verification shares the enrollment failure limit (10.2354ms)
+✔ seeds quietly, respects trust, notification modes, repeated observations and arrival limit (17.7216ms)
+✔ alternating recent ARP senders raise one advisory; sustained reassignment and remote claims do not (1.1314ms)
+✔ gateway requires confirmed replacement on the same network; a transient change clears (0.766ms)
+✔ rate uses a mature live window, sustain period and cooldown; replay processing speed is ignored (1.9577ms)
+✔ anomaly switches are independent and do not disable observation (0.8142ms)
+✔ passive self-announcement is matched to a neighbor, retains provenance, and expires on goodbye (20.7015ms)
+✔ refuses unrelated names and late lookups after reassignment; requests lookups for cache-only neighbors (3.7502ms)
+✔ device filters cover all retained pages and summary totals include the entire inventory (6.5171ms)
+✔ keeps a startup announcement until adapter discovery confirms the local neighbor (45.1355ms)
+✔ a passive DHCP name can precede assignment and only enriches the matching local identity (1.2131ms)
+✔ alert summaries cover full history and filtering precedes paging (1.0954ms)
+✔ restart adds counter snapshots once, retains source, reports evictions and clears (5.8232ms)
+✔ late IPv6 PTR updates retained records on the same interface after capture stops (1.32ms)
+✔ on-link evidence, scoped identities, randomization and durable preferences (124.5153ms)
+✔ a slow adapter lookup replays bounded neighbor evidence; late PTR updates only its current owner (16.4528ms)
+✔ late OS lookup from a stopped adapter cannot modify the next session (1.5629ms)
+Link type: Ethernet
+Link type: Ethernet
+Link type: Ethernet
+Link type: Ethernet
+✔ commands, repeated capture and controller reconnect (553.9797ms)
+Link type: Ethernet
+✔ fixture remains detectable behind a TCP filter; acknowledgment, trust and rules survive bridge restart (341.568ms)
+✔ invalid on-disk rules leave capture usable and preserve the original file (20.5189ms)
+✔ DNS correlation respects question, client, source, CNAME TTL and event time (1.8951ms)
+✔ rolling throughput reacts to bursts and idle time, totals survive restart (2.5025ms)
+Link type: Ethernet
+✔ WebSocket replay 1/1 (137.239ms)
+Unsupported link type: 127
+✔ WebSocket replay 127/1 (82.6421ms)
+Link type: Ethernet
+✔ WebSocket replay 1/10000 (344.7194ms)
+Link type: Ethernet
+✔ DHCP and NetBIOS names reach scoped inventory through an actual pcap replay (55.5302ms)
+✔ deduplication, bounded work, positive and negative expiry, shutdown (4.2297ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6852.5393

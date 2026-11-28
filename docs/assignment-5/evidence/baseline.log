@@ -1,0 +1,7 @@
+﻿Started 2026-11-27T17:32:23.4848255-06:00
+Command $device=((& $env:NETSENTINEL_BIN --list-interfaces | Select-String 'Intel.*Ethernet Connection' | Select-Object -First 1).Line -split "`t")[0]
+& ./docs/assignment-5/measure-worker.ps1 -Device $device -Seconds 180
+Exit code 0
+Wall seconds 0.6008603
+
+File <repo>\docs\assignment-5\measure-worker.ps1 cannot be loaded because running scripts is disabled on this system. For more information, see about_Execution_Policies at https:/go.microsoft.com/fwlink/?LinkID=135170.

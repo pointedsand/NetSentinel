@@ -1,0 +1,10 @@
+﻿Started 2026-11-27T17:43:30.3354770-06:00
+Command $device=((& $env:NETSENTINEL_BIN --list-interfaces | Select-String 'Intel.*Ethernet Connection' | Select-Object -First 1).Line -split "`t")[0]
+$env:NETSENTINEL_SMOKE_DEVICE=$device
+node backend/service/browser-smoke.mjs
+Exit code 0
+Wall seconds 3.2841098
+
+Link type: Ethernet
+Link type: Ethernet
+PASS Edge live capture: two sessions started on Dashboard and stopped on Packets; frames observed: 199

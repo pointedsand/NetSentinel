@@ -1,0 +1,32 @@
+﻿Started 2026-11-27T17:46:04.9531951-06:00
+Command node docs/assignment-5/firefox-render.mjs docs/assignment-5/evidence/firefox-replay.png
+Exit code 1
+Wall seconds 45.6235161
+
+node:internal/errors:986
+  const err = new Error(message);
+              ^
+System.Management.Automation.RemoteException
+Error: Command failed: C:\Program Files\Mozilla Firefox\firefox.exe --no-remote --headless --profile <temp>\netsentinel-firefox-QNCeMm\profile --window-size 1366,768 --screenshot <repo>\docs\assignment-5\evidence\firefox-replay.png http://127.0.0.1:49909
+*** You are running in headless mode.
+System.Management.Automation.RemoteException
+[WARN  rkv::backend::impl_safe::environment] `load_ratio()` is irrelevant for this storage backend.
+[WARN  rkv::backend::impl_safe::environment] `load_ratio()` is irrelevant for this storage backend.
+System.Management.Automation.RemoteException
+    at genericNodeError (node:internal/errors:986:15)
+    at wrappedFn (node:internal/errors:540:14)
+    at ChildProcess.exithandler (node:child_process:417:12)
+    at ChildProcess.emit (node:events:514:28)
+    at maybeClose (node:internal/child_process:1172:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:335:5) {
+  code: null,
+  killed: true,
+  signal: 'SIGTERM',
+  cmd: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe --no-remote --headless --profile <temp>\\netsentinel-firefox-QNCeMm\\profile --window-size 1366,768 --screenshot <repo>\\docs\\assignment-5\\evidence\\firefox-replay.png http://127.0.0.1:49909',
+  stdout: '[GFX1-]: RenderCompositorSWGL failed mapping default framebuffer, no dt\r\n',
+  stderr: '*** You are running in headless mode.\r\n' +
+    '[WARN  rkv::backend::impl_safe::environment] `load_ratio()` is irrelevant for this storage backend.\n' +
+    '[WARN  rkv::backend::impl_safe::environment] `load_ratio()` is irrelevant for this storage backend.\n'
+}
+System.Management.Automation.RemoteException
+Node.js v24.22.3

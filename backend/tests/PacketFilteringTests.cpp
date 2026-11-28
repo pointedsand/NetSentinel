@@ -59,6 +59,12 @@ int main() {
 
     assert(combined_filter.matches(tcp_packet));
     assert(!combined_filter.matches(udp_packet));
+    auto tcp_wrong_port = tcp_packet;
+    tcp_wrong_port.destination_port = 53;
+    auto udp_same_port = udp_packet;
+    udp_same_port.destination_port = 443;
+    assert(!combined_filter.matches(tcp_wrong_port));
+    assert(!combined_filter.matches(udp_same_port));
 
     std::cout << "All Packet Filtering tests passed!\n";
     return 0;
