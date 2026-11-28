@@ -1,0 +1,44 @@
+{
+  "name": "netsentinel",
+  "productName": "NetSentinel",
+  "version": "0.1.0-demo",
+  "private": true,
+  "description": "Local network capture, device inventory and security monitoring",
+  "author": "NetSentinel, CS/CE 3354 Team 5",
+  "main": "desktop/main.mjs",
+  "type": "module",
+  "scripts": {
+    "build:frontend": "npm --prefix frontend run build",
+    "build:desktop": "npm run build:frontend && node desktop/build-worker.mjs",
+    "desktop:dev": "npm run build:desktop && electron .",
+    "desktop:pack": "npm run build:desktop && electron-builder --win --x64 --dir --publish never",
+    "desktop:installer": "electron-builder --win nsis --x64 --prepackaged release/win-unpacked --publish never",
+    "desktop:smoke": "node desktop/smoke.mjs"
+  },
+  "dependencies": {
+    "ws": "8.23.0"
+  },
+  "devDependencies": {
+    "electron": "45.5.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "edu.netsentinel.desktop",
+    "asar": true,
+    "directories": { "output": "release" },
+    "files": [
+      "desktop/main.mjs", "desktop/renderer.mjs", "frontend/dist/**/*",
+      "backend/service/{server,administrator,monitor,monitor-store,detections,device-names,history,inventory,neighbors,observed-names,resolver}.mjs",
+      "!**/backend/service/node_modules/**"
+    ],
+    "extraResources": [{
+      "from": "backend/build/desktop-resources", "to": "capture",
+      "filter": ["netsentinel.exe", "demo.pcap", "notices/**/*.txt"]
+    }],
+    "win": { "target": ["nsis"], "executableName": "NetSentinel" },
+    "nsis": {
+      "oneClick": false, "perMachine": false, "allowElevation": false,
+      "runAfterFinish": false, "artifactName": "NetSentinel-${version}-windows-x64-setup.${ext}"
+    }
+  }
+}

@@ -46,8 +46,8 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
   let selected = 0;
   const admin = new Administrator(credentialFile);
   const frontend = new URL(origin);
-  if (!['127.0.0.1','localhost','[::1]'].includes(frontend.hostname) ||
-      !['http:','https:'].includes(frontend.protocol) || frontend.origin !== origin)
+  if (origin !== 'netsentinel://desktop' && (!['127.0.0.1','localhost','[::1]'].includes(frontend.hostname) ||
+      !['http:','https:'].includes(frontend.protocol) || frontend.origin !== origin))
     throw Error('Expected an exact loopback frontend origin.');
   const allowed = req => req.headers.origin === origin &&
     ['127.0.0.1','localhost'].some(host=>req.headers.host === host+':'+http.address()?.port);

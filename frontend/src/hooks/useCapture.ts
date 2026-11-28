@@ -66,7 +66,10 @@ export function useCapture(showMonitor = false, showAlerts = false) {
   useEffect(() => {
     let closed = false, timer: ReturnType<typeof setTimeout>;
     function open() {
-      const ws = new WebSocket('ws://127.0.0.1:8080');
+      const port = location.protocol === 'netsentinel:'
+        ? document.querySelector<HTMLMetaElement>('meta[name="bridge-port"]')?.content
+        : '8080';
+      const ws = new WebSocket('ws://127.0.0.1:' + port);
       socket.current = ws;
       ws.onopen = () => {
         if (closed) return;

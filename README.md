@@ -9,6 +9,8 @@ The application uses a **C++ backend** for network processing and a **React + El
 
 ## Run the integrated application
 
+For Windows x64, install the Npcap runtime separately and run the NetSentinel desktop installer. Open **NetSentinel** from Start, choose an authorized Ethernet-format adapter, and select **Start capture**. The [desktop guide](docs/desktop.md) includes the offline demonstration, build commands and packaged-app verification.
+
 Use Node 24 and the capture build to start both the local bridge and React frontend with `node dev.mjs --live` or `node dev.mjs --replay`. The [setup and demonstration guide](backend/service/README.md) includes Windows prerequisites, commands and a three-packet walkthrough.
 
 ### 👥 Team Members
@@ -66,7 +68,7 @@ Use Node 24 and the capture build to start both the local bridge and React front
 | Frontend Build Tool | Vite |
 | Package Manager | npm / Node.js |
 | Desktop Framework | Electron |
-| Communication | Bidirectional WebSocket (planned) |
+| Communication | Bidirectional loopback WebSocket |
 | Target Platforms | Windows / Linux (planned) |
 
 ##  Architecture
