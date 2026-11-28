@@ -87,6 +87,10 @@ test('raw socket cannot mutate protected state; inspection, acknowledgment and r
   assert.equal((await request('monitor')).eventTotal,1);
   assert.equal((await request('monitor')).rules.discovery,initial.rules.discovery);
   assert.equal((await request('list_sources')).activeDns,false);
+  for (const update of [{trusted:true},{label:'Denied'}]) {
+    assert.equal((await request('device_preference',{id,...update})).type,'admin_required');
+  }
+  assert.equal((await request('monitor')).devices.find(d=>d.id===id).label,initial.devices.find(d=>d.id===id).label);
   const stale = await request('clear_packets');
   assert.equal((await request('start_capture')).packetCount,6);
   const firstUnlock = await request('admin_unlock',{password});

@@ -126,7 +126,11 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
           if (monitor.store?.error) throw Error(monitor.store.error);
           send(monitor.view()); return;
         }
-        if (['monitor','device_preference','monitor_rules','ack_event'].includes(msg.command)) { send(monitor.command(msg)); return; }
+        if (['monitor','device_preference','monitor_rules','ack_event'].includes(msg.command)) {
+          const view = monitor.command(msg);
+          if (msg.command === 'device_preference') view.requestId = msg.requestId;
+          send(view); return;
+        }
         if (msg.command === 'history_limit') {
           const limit = validateHistoryLimit(msg.limit);
           if (savingLimit) throw Error('A packet history setting is already being saved.');

@@ -41,7 +41,9 @@ it('keeps filters in the acknowledgment request and saves supported rule setting
   expect(typeof update==='function' && update(state.eventFilter).severity).toBe('Medium');
   fireEvent.click(screen.getByRole('button',{name:'Acknowledge'}));
   expect(state.command).toHaveBeenCalledWith('ack_event',{id:'a',eventFilter:state.eventFilter,eventOffset:0});
-  fireEvent.click(screen.getByText('Configure alert rules'));
+  const rules=screen.getByText('Configure alert rules');
+  expect(screen.getByRole('region',{name:'Alert history'}).compareDocumentPosition(rules) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(rules);
   fireEvent.change(screen.getByLabelText('Frames per second'),{target:{value:'80'}});
   fireEvent.click(screen.getByRole('button',{name:'Save monitoring rules'}));
   expect(state.command).toHaveBeenCalledWith('monitor_rules',expect.objectContaining({rules:{...view.rules,pps:80}}));

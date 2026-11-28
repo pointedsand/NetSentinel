@@ -1,29 +1,75 @@
 import { useEffect, useRef, useState } from 'react';
 import { deviceName } from '../deviceIdentity';
-import type { LocalDevice } from '../types';
+import { DeviceObservations } from './DeviceObservations';
+import type { LocalDevice, Packet } from '../types';
 
 const observedTime = (time: number) => new Date(time).toLocaleString(undefined,{
   month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'
 });
 
-export function DeviceCard({ device, adapter, open }: { device: LocalDevice; adapter: string; open: () => void }) {
-  return <button type="button" className="inventory-card" onClick={open} aria-label={'Details for '+deviceName(device)+' · '+device.mac}>
-    <span className="inventory-card-head"><span className="network-node-icon" aria-hidden="true"/>
-      <strong title={deviceName(device)}>{deviceName(device)}</strong>
+interface CardProps {
+  device: LocalDevice; adapter: string; open: () => void; disabled: boolean;
+  change: (fields: {label?: string; trusted?: boolean}) => void;
+}
+
+export function DeviceCard({device,adapter,open,disabled,change}: CardProps) {
+  const name = deviceName(device);
+  const [draft,setDraft] = useState<string|null>(null);
+  const [error,setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const editing = useRef(false);
+  const active = draft !== null;
+  useEffect(()=>{
+    if (active) {input.current?.focus(); input.current?.select();}
+  },[active]);
+  function begin() {
+    if (disabled) return;
+    editing.current=true; setDraft(name); setError('');
+  }
+  function finish(save:boolean) {
+    if (!editing.current) return;
+    editing.current=false;
+    const label=draft?.trim() ?? '';
+    setDraft(null);
+    if (!save || label===name) return;
+    if (!label || label.length>80 || Array.from(label).some(c=>c.charCodeAt(0)<32 || c.charCodeAt(0)===127)) {
+      setError('Use 1–80 printable characters.'); return;
+    }
+    change({label});
+  }
+  return <article className="inventory-card">
+    <div className="inventory-card-head"><span className="network-node-icon" aria-hidden="true"/>
+      {active ? <input className="filter-input card-name-input" ref={input} aria-label="Edit device name" value={draft}
+        onChange={e=>setDraft(e.target.value)} onBlur={()=>finish(true)}
+        onKeyDown={e=>{
+          if (e.nativeEvent.isComposing) return;
+          if (e.key==='Escape' || e.key==='Enter') {e.preventDefault();finish(e.key==='Enter');}
+        }}/> :
+        <button type="button" className="card-name" disabled={disabled} title={'Double-click to rename '+name}
+          onDoubleClick={begin} onKeyDown={e=>{
+            if (e.key==='F2' || e.key==='Enter') {e.preventDefault();begin();}
+          }}>{name}</button>}
       <span className={'trust-chip'+(device.trusted ? ' trusted' : '')}>{device.trusted ? 'Trusted' : 'Unknown'}</span>
-    </span>
+    </div>
+    {error && <small role="alert">{error}</small>}
     <span className="identity-line"><span>IP</span><code title={device.ips.join(', ')}>{device.ips[0]}{device.ips.length>1 && '  +'+(device.ips.length-1)}</code></span>
     <span className="identity-line"><span>MAC</span><code>{device.mac}</code></span>
-    <span className="inventory-card-foot"><span title={adapter}>Observed via {adapter}</span><time title={'Last observed '+new Date(device.last).toLocaleString()} dateTime={new Date(device.last).toISOString()}>{observedTime(device.last)}</time><span className="details-link">Details ›</span></span>
-  </button>;
+    <div className="inventory-card-foot"><span className="card-observation" title={'Observed via '+adapter}>
+      Observed via {adapter}<time dateTime={new Date(device.last).toISOString()}>{observedTime(device.last)}</time></span>
+      <button type="button" className={'tool-btn card-trust'+(device.trusted ? '' : ' grant')} disabled={disabled}
+        onClick={()=>change({trusted:!device.trusted})}>{device.trusted ? 'Untrust' : 'Trust'}</button>
+      <button type="button" className="tool-btn" onClick={open} aria-label={'Details for '+name+' · '+device.mac}>Details ›</button>
+    </div>
+  </article>;
 }
 
 interface DetailsProps {
-  device: LocalDevice; adapter: string; count: number; connected: boolean; error: string;
+  device: LocalDevice; adapter: string; packets: Packet[]; inspect?: (id:number)=>void; connected: boolean; error: string;
   close: () => void; showPackets?: () => void; save: (label: string, trusted: boolean) => void;
 }
 
-export function DeviceDetails({device,adapter,count,connected,error,close,showPackets,save}: DetailsProps) {
+export function DeviceDetails({device,adapter,packets,inspect,connected,error,close,showPackets,save}: DetailsProps) {
+  const count = packets.length;
   const dialog = useRef<HTMLDialogElement>(null);
   const [label,setLabel] = useState(device.label);
   const [trusted,setTrusted] = useState(device.trusted);
@@ -64,6 +110,7 @@ export function DeviceDetails({device,adapter,count,connected,error,close,showPa
       <div><dt>Discovery phase</dt><dd>{device.discovery || 'Previously observed'}</dd></div>
       {device.nameObserved && <div><dt>Hostname observed</dt><dd>{new Date(device.nameObserved).toLocaleString()}</dd></div>}
     </dl></details>
+    <DeviceObservations device={device} packets={packets} inspect={inspect}/>
     <footer><span>{count} associated retained packet{count===1 ? '' : 's'}</span>
       <button type="button" className="tool-btn" disabled={!showPackets || !count} onClick={showPackets}>View packets</button></footer>
   </dialog>;

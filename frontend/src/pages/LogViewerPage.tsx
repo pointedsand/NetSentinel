@@ -206,6 +206,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
   const pageSize = 20;
   const [importPage, setImportPage] = useState(0);
   const imported = importedLog ?? localImport;
+  const totalPages = Math.max(1,Math.ceil((imported?.packets.length ?? 0)/pageSize));
   const archiveAPI = archiveUnavailable ? window.netSentinelArchives : undefined;
   const loading = useRef<AbortController | null>(null);
   const [opening,setOpening]=useState('');
@@ -221,6 +222,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
       if (controller.signal.aborted) return;
       if (entry) {
         log.local=true;
+        log.stamp=entry.stamp;
         setOpened({name:entry.name,stamp:entry.stamp,count:log.packets.length});
       }
       (onImport ?? setLocalImport)(log);
@@ -232,6 +234,10 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
     if (file) void inspect(file.name,signal=>readExternal(file,signal));
   }
   function openLocal(entry:ArchiveEntry) {
+    if (opening===entry.name) return;
+    if (imported?.local && imported.name===entry.name && imported.stamp===entry.stamp) {
+      loading.current?.abort(); setOpening(''); setImportError(''); return;
+    }
     if (archiveAPI) void inspect(entry.name,signal=>readArchive(entry.name,entry.size,
       (offset,length)=>archiveAPI.read(entry.name,entry.stamp,offset,length),signal),entry);
   }
@@ -290,23 +296,6 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
         </div>
       </div>
 
-      {opening && <p role="status">Reading {opening}…</p>}
-      {importError && <p role="alert">{importError}</p>}
-      {imported && activeTab==='captures' && <section className="dashboard-card imported-log"><h2>{imported.local ? 'Saved archive' : 'Imported metadata'} · {imported.name}</h2>
-        <div className="archive-summary">
-          <button type="button" className="tool-btn" onClick={()=>{
-            loading.current?.abort();
-            setOpening(''); setImportPage(0);
-            (onImport ?? setLocalImport)(null);
-          }}>Close log</button>
-          <span>{imported.packets.length.toLocaleString()} packet records</span>
-        </div>
-        <div className="packet-table-container log-scroll"><table className="packet-table"><thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Size</th><th>Name</th></tr></thead>
-        <tbody>{imported.packets.slice(importPage*pageSize,(importPage+1)*pageSize).map((p,i)=><tr key={i}><td>{p.time}</td><td>{p.source}</td><td>{p.destination}</td><td>{p.protocol}</td><td>{p.size}</td><td>{p.name}</td></tr>)}</tbody></table></div>
-        <div className="log-pagination"><span>Page {importPage+1} of {Math.max(1,Math.ceil(imported.packets.length/pageSize))}</span>
-        <button className="tool-btn" disabled={!importPage} onClick={()=>setImportPage(importPage-1)}>Previous</button>
-        <button className="tool-btn" disabled={(importPage+1)*pageSize >= imported.packets.length} onClick={()=>setImportPage(importPage+1)}>Next</button></div>
-      </section>}
       <section className="dashboard-card">
         <div className="logs-tabs" role="tablist" aria-label="Log type">
           <button
@@ -335,7 +324,7 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
           </button>
         </div>
 
-        {activeTab === 'captures' && archiveAPI && <ArchiveList open={openLocal} opened={opened}/>}
+        {activeTab === 'captures' && archiveAPI && <ArchiveList open={openLocal} opened={opened} selected={imported?.local ? imported : undefined} opening={opening}/>}
         {activeTab === 'captures' && !archiveAPI && (
           <>
             <div className="logs-management-toolbar">
@@ -461,6 +450,33 @@ export const LogViewerPage: React.FC<LogViewerPageProps> = ({
           )
         )}
       </section>
+
+      {opening && <p role="status">Reading {opening}…</p>}
+      {importError && <p role="alert">{importError}</p>}
+      {imported && activeTab==='captures' && <section className="dashboard-card imported-log"><h2>{imported.local ? 'Saved archive' : 'Imported metadata'} · {imported.name}</h2>
+        <div className="archive-summary">
+          <button type="button" className="tool-btn" onClick={()=>{
+            loading.current?.abort();
+            setOpening(''); setImportPage(0);
+            (onImport ?? setLocalImport)(null);
+          }}>Close log</button>
+          <span>{imported.packets.length.toLocaleString()} packet records</span>
+        </div>
+        <div className="packet-table-container log-scroll"><table className="packet-table"><thead><tr><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Size</th><th>Name</th></tr></thead>
+        <tbody>{imported.packets.slice(importPage*pageSize,(importPage+1)*pageSize).map((p,i)=><tr key={i}><td>{p.time}</td><td>{p.source}</td><td>{p.destination}</td><td>{p.protocol}</td><td>{p.size}</td><td>{p.name}</td></tr>)}</tbody></table></div>
+        <div className="log-pagination"><label>Page <input className="archive-page" type="number" aria-label="Archive page number" min={1} max={totalPages}
+          key={JSON.stringify([imported.name,imported.stamp,importPage])} defaultValue={importPage+1}
+          onBlur={e=>{e.currentTarget.value=String(importPage+1);}}
+          onKeyDown={e=>{
+            if (e.key !== 'Enter') return;
+            const number=e.currentTarget.valueAsNumber;
+            const target=Number.isSafeInteger(number) ? Math.max(1,Math.min(totalPages,number)) : importPage+1;
+            e.currentTarget.value=String(target);
+            setImportPage(target-1);
+          }}/> of {totalPages}</label>
+        <button className="tool-btn" disabled={!importPage} onClick={()=>setImportPage(importPage-1)}>Previous</button>
+        <button className="tool-btn" disabled={(importPage+1)*pageSize >= imported.packets.length} onClick={()=>setImportPage(importPage+1)}>Next</button></div>
+      </section>}
 
       {/* Confirmation modal ensures the log purge is intentional before deleting historical records. */}
       {showConfirmModal && (

@@ -435,7 +435,7 @@
 .inventory-search { margin: 16px 0 12px; }
 .inventory-search input, .inventory-filters input { width: min(280px,100%); }
 .device-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.inventory-card { min-width: 0; display: grid; gap: 6px; padding: 13px 14px 10px; background: #1a2433; color: #e8eef7; border: 1px solid #34435a; border-radius: 8px; text-align: left; cursor: pointer; font: inherit; line-height: 1.4; }
+.inventory-card { min-width: 0; display: grid; gap: 6px; padding: 13px 14px 10px; background: #1a2433; color: #e8eef7; border: 1px solid #34435a; border-radius: 8px; text-align: left; font: inherit; line-height: 1.4; }
 .inventory-card:is(:hover,:focus-visible) { border-color: #6e9cc6; background: #1c293a; }
 .inventory-card-head, .inventory-card-foot, .identity-line { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .inventory-card-head { margin-bottom: 5px; }
@@ -491,3 +491,18 @@
   .inventory-filters { flex-wrap: wrap; }
   .inventory-section, .endpoint-panel { padding: 12px; }
 }
+
+.card-name { min-width: 0; padding: 0; border: 0; color: inherit; background: transparent; font-family: inherit; font-size: 15px; font-weight: 650; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.card-name-input { width: 100%; min-width: 0; padding: 3px 5px; }
+.card-observation { flex: 1; }
+.card-observation time { display: block; overflow: hidden; text-overflow: ellipsis; }
+.inventory-card-foot { gap: 5px; }
+.inventory-card-foot .tool-btn { padding: 3px 6px; white-space: nowrap; font-size: 11px; }
+.card-trust.grant { color: #91dfbc; }
+.inventory-card small[role="alert"] { color: #ffb6aa; }
+.observation-scroll { max-height: 24vh; overflow: auto; margin-top: 8px; }
+.observation-scroll table { width: 100%; font-size: 12px; }
+.observation-scroll :is(td,th) { padding: 4px; text-align: left; }
+.observation-scroll th { position: sticky; top: 0; background: #202b3d; }
+.device-evidence p, .observation-pages { font-size: 12px; }
+.observation-pages { display: flex; align-items: center; gap: 8px; margin-top: 8px; }

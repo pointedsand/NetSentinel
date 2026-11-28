@@ -29,7 +29,10 @@ export class Inventory {
   }
   edit(id, label, trusted) {
     const device = this.devices.get(id);
-    if (!device || typeof label !== 'string' || label.length > 80 || typeof trusted !== 'boolean') throw Error('Invalid device preference.');
-    Object.assign(device,{label:label.trim(),trusted});
+    if (!device || (label === undefined && trusted === undefined) ||
+        (label !== undefined && (typeof label !== 'string' || label.length > 80)) ||
+        (trusted !== undefined && typeof trusted !== 'boolean')) throw Error('Invalid device preference.');
+    if (label !== undefined) device.label = label.trim();
+    if (trusted !== undefined) device.trusted = trusted;
   }
 }

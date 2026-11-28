@@ -73,8 +73,6 @@ export function MonitoringAlerts({capture,onPackets}: {capture:Capture; onPacket
         {Object.entries(view.severityCounts).map(([level,n])=><div key={level}><dt>{severityLabel(level)}</dt><dd>{n}</dd></div>)}</dl>}
     </header>
     {(view?.storageError || capture.error) && <p role="alert">{view?.storageError || capture.error}</p>}
-    {view && <AlertRuleSettings rules={view.rules} disabled={!capture.connected}
-      save={rules=>capture.command('monitor_rules',{...fields,rules})}/>}
     <section className="security-history" aria-label="Alert history">
       <header><h2>Alert history</h2><div className="security-filters">
         <label>Review status<select aria-label="Review status" value={filters.status} onChange={e=>filter('status',e.target.value)}>
@@ -96,5 +94,7 @@ export function MonitoringAlerts({capture,onPackets}: {capture:Capture; onPacket
           <span>{view.eventOffset+1}–{view.eventOffset+view.events.length}</span>
           <button className="tool-btn" disabled={view.eventOffset+24>=view.eventMatches} onClick={()=>capture.setEventOffset(view.eventOffset+24)}>Next</button></nav>}</footer>}
     </section>
+    {view && <AlertRuleSettings rules={view.rules} disabled={!capture.connected}
+      save={rules=>capture.command('monitor_rules',{...fields,rules})}/>}
   </section>;
 }

@@ -1,6 +1,6 @@
 import type { Packet } from '../types';
 
-export interface ImportedLog { name:string; packets:Packet[]; local?:boolean }
+export interface ImportedLog { name:string; packets:Packet[]; local?:boolean; stamp?:string }
 export const maxArchiveBytes = 128 * 1024 * 1024;
 const header = 'ID,Source,Destination,Protocol,Size,Name,Timestamp,Time';
 

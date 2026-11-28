@@ -44,6 +44,14 @@ test('device filters cover all retained pages and summary totals include the ent
   m.command({command:'device_preference',id:device.id,label:'Lab printer',trusted:true});
   const view=m.view(24,0,{term:'printer',trust:'trusted',compact:true});
   assert.equal(view.deviceTotal,32); assert.equal(view.trustedTotal,1); assert.equal(view.matchingTotal,1);
+  const all=m.view(0,0,{compact:true});
+  assert.equal(all.devices.length,6);
+  assert.equal(all.devices[0].id,device.id);
+  assert.deepEqual(all.devices.slice(1).map(d=>d.last),[32,31,30,29,28]);
+  const moved=m.command({command:'device_preference',id:device.id,trusted:false,offset:6,deviceFilter:{trust:'trusted',compact:true}});
+  assert.equal(moved.offset,0);
+  assert.equal(moved.matchingTotal,0);
+  assert.equal(m.view(0,0,{term:'printer'}).devices[0].label,'Lab printer');
   assert.equal(view.offset,0); assert.equal(view.devices[0].id,device.id);
   assert.equal(m.observe('192.0.2.255',mac,900,'OS neighbor cache'),undefined);
 });

@@ -27,7 +27,7 @@ interface DeviceActivity {
 }
 
 interface DevicesPageProps {
-  onDevicePackets?: (d: LocalDevice) => void;
+  onDevicePackets?: (d: LocalDevice, id?:number) => void;
   observed?: boolean;
   capture?: Capture;
   packets: Packet[];

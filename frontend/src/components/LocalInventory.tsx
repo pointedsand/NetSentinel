@@ -4,15 +4,20 @@ import { interfaceName, isDevicePacket } from '../deviceIdentity';
 import type { Capture } from '../hooks/useCapture';
 import type { LocalDevice } from '../types';
 
-export function LocalInventory({capture,onPackets}: {capture: Capture; onPackets?: (d:LocalDevice)=>void}) {
+export function LocalInventory({capture,onPackets}: {capture: Capture; onPackets?: (d:LocalDevice,id?:number)=>void}) {
   const view = capture.monitor;
   const filter = capture.deviceFilter;
   const device = view?.devices.find(d=>d.id===filter.focus) ?? (view?.focused?.id===filter.focus ? view?.focused : undefined);
-  const count = useMemo(()=>device ? capture.packets.filter(p=>isDevicePacket(p,device)).length : 0,[device,capture.packets]);
+  const packets = useMemo(()=>device ? capture.packets.filter(p=>isDevicePacket(p,device)) : [],[device,capture.packets]);
   const adapter = (d:LocalDevice) => d.interfaceName || interfaceName(d.source,{...capture.sourceNames,...view?.interfaceNames});
   function search(fields: Partial<typeof filter>) {
     capture.setOffset(0);
     capture.setDeviceFilter(current=>({...current,...fields}));
+  }
+  const error = capture.admin.preferenceError || view?.storageError || capture.error;
+  const disabled = !capture.connected || capture.admin.preferencePending;
+  function change(d:LocalDevice,fields:{label?:string;trusted?:boolean}) {
+    capture.command('device_preference',{id:d.id,...fields,offset:view?.offset,deviceFilter:filter});
   }
   const close = () => capture.setDeviceFilter(current=>({...current,focus:''}));
   return <section className="inventory-section" aria-label="Local device inventory">
@@ -27,11 +32,11 @@ export function LocalInventory({capture,onPackets}: {capture: Capture; onPackets
       <div className="devices-filter-pills" role="group" aria-label="Filter by trust">
         {[['','All devices'],['trusted','Trusted'],['unknown','Unknown']].map(([value,text])=><button type="button" key={value} className={'devices-filter-pill'+(filter.trust===value?' is-active':'')} aria-pressed={filter.trust===value} onClick={()=>search({trust:value})}>{text}</button>)}
       </div></div>
-    {(view?.storageError || capture.error) && <p role="alert">{view?.storageError || capture.error}</p>}
+    {error && <p role="alert">{error}</p>}
     {!!view?.missed && <p>{view.missed} neighbor records missed pending adapter metadata.</p>}
     {view?.capacityReached && <p>Inventory capacity reached (512 identities).</p>}
     {view && <div className="device-grid">{view.devices.map(d=><DeviceCard key={d.id} device={d} adapter={adapter(d)}
-      open={()=>capture.setDeviceFilter(current=>({...current,focus:d.id}))}/>)}</div>}
+      disabled={disabled} change={fields=>change(d,fields)} open={()=>capture.setDeviceFilter(current=>({...current,focus:d.id}))}/>)}</div>}
     {view && !view.devices.length && <p className="logs-empty-state">{view.deviceTotal ? 'No devices match these filters.' : 'No local devices observed yet.'}</p>}
     <div className="inventory-bottom"><small>{capture.connected ? view?.status ?? 'Loading inventory…' : 'Backend disconnected'}</small>
       {view && view.matchingTotal>6 && <nav aria-label="Device pages">
@@ -39,9 +44,9 @@ export function LocalInventory({capture,onPackets}: {capture: Capture; onPackets
         <span>{view.offset+1}–{view.offset+view.devices.length} of {view.matchingTotal}</span>
         <button className="tool-btn" disabled={view.offset+6>=view.matchingTotal} onClick={()=>capture.setOffset(view.offset+6)}>Next</button>
       </nav>}</div>
-    {device && <DeviceDetails key={device.id} device={device} adapter={adapter(device)} count={count}
-      error={capture.error || view?.storageError || ''} connected={capture.connected} close={close}
-      save={(label,trusted)=>capture.command('device_preference',{id:device.id,label,trusted,offset:view?.offset,deviceFilter:filter})}
+    {device && <DeviceDetails key={device.id} device={device} adapter={adapter(device)} packets={packets} inspect={onPackets ? id=>{close();onPackets(device,id);} : undefined}
+      error={error} connected={!disabled} close={close}
+      save={(label,trusted)=>change(device,{label,trusted})}
       showPackets={onPackets ? ()=>{close();onPackets(device);} : undefined}/>}
   </section>;
 }
