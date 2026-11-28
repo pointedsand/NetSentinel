@@ -27,17 +27,18 @@
     "asar": true,
     "directories": { "output": "release" },
     "files": [
-      "desktop/main.mjs", "desktop/renderer.mjs", "frontend/dist/**/*",
+      "desktop/main.mjs", "desktop/renderer.mjs", "desktop/window-bounds.mjs", "frontend/dist/**/*",
       "backend/service/{server,administrator,monitor,monitor-store,detections,device-names,history,inventory,neighbors,observed-names,resolver}.mjs",
       "!**/backend/service/node_modules/**"
     ],
     "extraResources": [{
       "from": "backend/build/desktop-resources", "to": "capture",
       "filter": ["netsentinel.exe", "demo.pcap", "notices/**/*.txt"]
-    }],
-    "win": { "target": ["nsis"], "executableName": "NetSentinel" },
+    }, { "from": "desktop/netsentinel.ico", "to": "netsentinel.ico" }],
+    "win": { "target": ["nsis"], "executableName": "NetSentinel", "icon": "desktop/netsentinel.ico" },
     "nsis": {
       "oneClick": false, "perMachine": false, "allowElevation": false,
+      "installerIcon": "desktop/netsentinel.ico", "uninstallerIcon": "desktop/netsentinel.ico",
       "runAfterFinish": false, "artifactName": "NetSentinel-${version}-windows-x64-setup.${ext}"
     }
   }

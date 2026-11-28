@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { connect } from 'node:net';
 import { once } from 'node:events';
@@ -23,8 +23,8 @@ env.Path = [system, join(system, 'WindowsPowerShell/v1.0'), process.env.SystemRo
 const profile = '--user-data-dir=' + join(dir, 'chromium');
 let desktop, page, port;
 
-async function launch(demo) {
-  desktop = await _electron.launch({ executablePath, chromiumSandbox: true, env,
+async function launch(demo, binary = executablePath) {
+  desktop = await _electron.launch({ executablePath: binary, chromiumSandbox: true, env,
     args: demo ? [profile, '--demo'] : [profile], timeout: 25000 });
   page = await desktop.firstWindow({ timeout: 20000 });
   page.on('console', message => {
@@ -39,6 +39,96 @@ async function launch(demo) {
 }
 const button = name => page.getByRole('button', { name, exact: true });
 const navigate = name => page.getByRole('navigation').getByRole('button', { name, exact: true }).click();
+async function verifyRetention() {
+  const copy = join(dir, 'packaged-retention-test');
+  await cp(dirname(executablePath), copy, { recursive: true });
+  const path = join(copy, 'resources/capture/demo.pcap');
+  const fixture = await readFile(path);
+  // Keep each replay below the worker mailbox capacity so only history eviction is exercised.
+  await writeFile(path, Buffer.concat([fixture.subarray(0,24), ...Array(80).fill(fixture.subarray(24))]));
+  await launch(true, join(copy, basename(executablePath)));
+  for (let session = 1; session <= 18; session++) {
+    await button('Start capture').click();
+    await page.waitForFunction(expected => Number(document.querySelector('[data-testid="packet-count"]').textContent.replaceAll(',', '')) === expected, session * 240);
+    await button('Start capture').waitFor();
+  }
+  await navigate('Packets');
+  const totals = page.locator('.rail-totals').first();
+  const value = async label => (await totals.getByText(label, { exact: true }).locator('..').locator('dd').innerText()).replaceAll(',', '');
+  assert.equal(await value('Captured frames'), '4320');
+  assert.equal(await value('Stored packets'), '4096 / 4096');
+  assert.equal(await value('Evicted packets'), '224');
+  assert.equal(await value('Output drops'), '0');
+  const visible = page.locator('.packet-counter strong');
+  assert.equal((await visible.innerText()).replaceAll(',', ''), '4096');
+  await page.getByLabel('Display protocol').selectOption('TCP');
+  assert.equal(await visible.innerText(), '0');
+  assert.equal(await value('Stored packets'), '4096 / 4096');
+  await button('Clear Capture Log').click();
+  await page.waitForFunction(() => document.querySelector('.rail-totals dd').textContent === '0');
+  assert.equal(await value('Stored packets'), '0 / 4096');
+  assert.equal(await value('Evicted packets'), '0');
+  assert.equal(await value('Output drops'), '0');
+  await closeWindow();
+  console.log('PASS packaged deterministic replay: 4320 captured, 4096 stored, 224 evicted, 0 drops; filtering and explicit reset confirmed.');
+}
+async function verifyWindowSize() {
+  const theme = await desktop.evaluate(({ BrowserWindow, nativeTheme }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    return { title: win.getTitle(), dark: nativeTheme.shouldUseDarkColors, border: win.getAccentColor(),
+      highContrast: nativeTheme.shouldUseHighContrastColors };
+  });
+  assert.equal(theme.title, 'NetSentinel');
+  assert.ok(theme.dark);
+  if (!theme.highContrast) assert.equal(String(theme.border).replace('#', '').toLowerCase(), '101925');
+  const initial = await desktop.evaluate(({ BrowserWindow, screen }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    const bounds = win.getBounds();
+    return { bounds, area: screen.getDisplayMatching(bounds).workArea,
+      minimum: win.getMinimumSize(), resizable: win.isResizable(), maximizable: win.isMaximizable() };
+  });
+  const { bounds, area } = initial;
+  assert.deepEqual(initial.minimum, [1024, 650]);
+  assert.ok(initial.resizable && initial.maximizable);
+  assert.equal(bounds.width, Math.max(1024, Math.min(1280, area.width)));
+  assert.equal(bounds.height, Math.max(650, Math.min(800, area.height)));
+  if (area.width >= 1024 && area.height >= 650) {
+    assert.ok(bounds.x >= area.x && bounds.y >= area.y &&
+      bounds.x + bounds.width <= area.x + area.width && bounds.y + bounds.height <= area.y + area.height);
+  }
+  await desktop.evaluate(async ({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    const maximized = new Promise(resolve => win.once('maximize', resolve));
+    win.maximize();
+    await maximized;
+    const restored = new Promise(resolve => win.once('unmaximize', resolve));
+    win.unmaximize();
+    await restored;
+  });
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1024, 650));
+  await page.waitForFunction(() => window.outerWidth === 1024 && window.outerHeight === 650);
+  const minimum = await desktop.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    win.setSize(800, 500);
+    return win.getSize();
+  });
+  assert.deepEqual(minimum, [1024, 650]);
+  for (const route of ['Dashboard', 'Packets', 'Devices', 'Alerts', 'Logs', 'Settings']) {
+    await navigate(route);
+    const content = page.locator('.desktop-content');
+    assert.ok(await content.evaluate(el => el.scrollWidth <= el.clientWidth + 1), route + ' overflows horizontally');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    const controls = page.locator('.desktop-header').getByRole('button', { name: 'Start capture' });
+    await controls.click({ trial: true });
+    if (route === 'Dashboard') {
+      await content.locator('.overview-previews').scrollIntoViewIfNeeded();
+      assert.ok(await content.evaluate(el => el.scrollHeight <= el.clientHeight || el.scrollTop > 0));
+    }
+  }
+  await navigate('Dashboard');
+  console.log('PASS native launch ' + bounds.width + 'x' + bounds.height + ' in work area ' +
+    area.width + 'x' + area.height + ', maximize/restore, 1024x650 minimum and six-page layout.');
+}
 async function settings() {
   await navigate('Settings');
   await page.getByRole('tab', { name: 'Access Control' }).click();
@@ -55,9 +145,11 @@ async function closeWindow() {
 }
 
 try {
+  await verifyRetention();
   await launch(true);
   await button('Start capture').click();
   await page.waitForFunction(() => document.querySelector('[data-testid="packet-count"]')?.textContent === '3');
+  await verifyWindowSize();
   await navigate('Packets');
   await button('3').click();
   await page.getByRole('region', { name: 'Packet details' }).waitFor();

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, protocol, session } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, protocol, screen, session } from 'electron';
 import { execFile } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { once } from 'node:events';
@@ -8,6 +8,7 @@ import { serve } from '../backend/service/server.mjs';
 import { Monitor } from '../backend/service/monitor.mjs';
 import { defaultStateFile, openStore } from '../backend/service/monitor-store.mjs';
 import { origin, renderer } from './renderer.mjs';
+import { initialWindowBounds } from './window-bounds.mjs';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'netsentinel',
   privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
@@ -49,7 +50,12 @@ async function start() {
   ses.setPermissionCheckHandler((contents, permission) => contents === window?.webContents &&
     contents.getURL() === origin + '/' && permission === 'clipboard-sanitized-write');
   if (closing) return;
-  window = new BrowserWindow({ width: 1366, height: 820, minWidth: 700, minHeight: 480,
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  app.setAppUserModelId('edu.netsentinel.desktop');
+  nativeTheme.themeSource = 'dark';
+  window = new BrowserWindow({ ...initialWindowBounds(display.workArea),
+    icon: join(app.isPackaged ? process.resourcesPath : join(root, 'desktop'), 'netsentinel.ico'),
+    accentColor: nativeTheme.shouldUseHighContrastColors ? undefined : '#101925',
     title: 'NetSentinel', backgroundColor: '#0c131d', autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
       webviewTag: false } });

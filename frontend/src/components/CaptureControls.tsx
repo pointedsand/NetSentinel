@@ -18,15 +18,23 @@ export function NameResolution({state}: {state:Capture}) {
 }
 
 export function CaptureControls({state}: {state:Capture}) {
+  const {packetCount, rejected, retained, historyCapacity, evicted, outputDrops} = state.stats;
+  const stored = historyCapacity == null ? retained.toLocaleString() :
+    retained.toLocaleString() + ' / ' + historyCapacity.toLocaleString();
   return <><h2>Capture session</h2>
     <label>Capture source<CaptureSource state={state}/></label>
     <label>Display protocol<select aria-label="Display protocol" value={state.protocol} onChange={e=>state.setProtocol(e.target.value)}>
       <option value="">All protocols</option>{['IPv4','IPv6','TCP','UDP','ICMP','ICMPv6','ARP','LLDP','IGMP','ESP','OTHER'].map(p=><option key={p}>{p}</option>)}
     </select></label>
-    <dl className="rail-totals">{[['Captured frames',state.stats.packetCount+state.stats.rejected],['Retained',state.stats.retained],['Output drops',state.stats.outputDrops]].map(([k,v])=>
-      <div key={k}><dt>{k}</dt><dd>{v.toLocaleString()}</dd></div>)}</dl>
+    <dl className="rail-totals">
+      <div><dt>Captured frames</dt><dd>{(packetCount + rejected).toLocaleString()}</dd></div>
+      <div><dt>Stored packets</dt><dd>{stored}</dd></div>
+      <div><dt>Evicted packets</dt><dd>{evicted.toLocaleString()}</dd></div>
+      <div><dt>Output drops</dt><dd>{outputDrops.toLocaleString()}</dd></div>
+    </dl>
+    {historyCapacity != null && <small>Only the newest {historyCapacity.toLocaleString()} packet records are retained in memory.</small>}
     <details className="session-diagnostics"><summary>Session details</summary><dl className="rail-totals">
-      <div><dt>Evicted</dt><dd>{state.stats.evicted}</dd></div><div><dt>Rejected</dt><dd>{state.stats.rejected}</dd></div>
+      <div><dt>Rejected</dt><dd>{rejected.toLocaleString()}</dd></div>
       <div><dt>Reverse DNS</dt><dd>{state.activeDns?'On':'Off'}</dd></div></dl>
       <p>{state.sourceIds[state.selected]}</p></details>
   </>;

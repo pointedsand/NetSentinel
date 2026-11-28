@@ -47,6 +47,6 @@ export class PacketHistory {
     return this.message(packets);
   }
   message(packets) {
-    return {...this.stats, packets, retained:this.rows.length, evicted:this.evicted};
+    return {...this.stats, packets, retained:this.rows.length, historyCapacity:this.limit, evicted:this.evicted};
   }
 }

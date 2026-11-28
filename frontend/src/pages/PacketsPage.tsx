@@ -148,7 +148,7 @@ export function PacketsPage({
         </div>
 
         <div className="toolbar-right">
-          <span className="packet-counter">{live ? 'Displayed' : 'Captured'}: <strong>{live ? filteredPackets.length : packets.length}</strong></span>
+          <span className="packet-counter">{live ? 'Visible packets' : 'Captured'}: <strong>{(live ? filteredPackets.length : packets.length).toLocaleString()}</strong></span>
         </div>
       </div>
 

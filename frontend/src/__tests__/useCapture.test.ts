@@ -28,6 +28,21 @@ const batch = {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('keeps only the stored window and filters it without changing cumulative counters', () => {
+  vi.stubGlobal('WebSocket', TestSocket);
+  const { result } = renderHook(useCapture);
+  const socket = TestSocket.current;
+  socket.deliver({...batch, packets:[record, {...record, id:2, protocol:'TCP'}], historyCapacity:2});
+  socket.deliver({...batch, packets:[{...record, id:3}], historyCapacity:2, packetCount:3, evicted:1, outputDrops:0});
+  act(() => result.current.setProtocol('UDP'));
+  expect(result.current.visible.map(row => row.id)).toEqual([3]);
+  expect(result.current.packets.map(row => row.id)).toEqual([3,2]);
+  expect(result.current.stats).toMatchObject({packetCount:3, historyCapacity:2, retained:2, evicted:1, outputDrops:0});
+  socket.deliver({...batch, offset:0, historyPage:true, packetCount:0, evicted:0, retained:0, outputDrops:0, historyCapacity:2});
+  expect(result.current.visible).toHaveLength(0);
+  expect(result.current.packets).toHaveLength(0);
+});
+
 it('updates late PTR names on the matching interface and keeps IP addresses and totals when filtering', () => {
   vi.stubGlobal('WebSocket', TestSocket);
   const { result } = renderHook(useCapture);

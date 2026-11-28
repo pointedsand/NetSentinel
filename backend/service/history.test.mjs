@@ -29,3 +29,24 @@ test('late IPv6 PTR updates retained records on the same interface after capture
   assert.equal(names.get(ip),'example.test');
   names.close();
 });
+
+test('overflow discards oldest stored records independently of worker drops and capture restarts', () => {
+  const h = new PacketHistory();
+  const total = h.limit + 17;
+  const first = {...h.stats, packetCount:total, packets:Array.from({length:total}, () => ({}))};
+  const full = h.append(first, 'fixture');
+  assert.equal(full.historyCapacity, h.limit);
+  assert.equal(full.retained, h.limit);
+  assert.equal(full.evicted, 17);
+  assert.equal(full.outputDrops, 0);
+  assert.equal(h.rows[0].id, 18);
+  h.begin();
+  const next = h.append({...first, packetCount:4, rejected:1, outputDrops:3, packets:[{}]}, 'second');
+  assert.equal(next.packetCount + next.rejected, total + 5);
+  assert.equal(next.evicted, 18);
+  assert.equal(next.outputDrops, 3);
+  h.clear();
+  const cleared = h.message([]);
+  assert.deepEqual([cleared.packetCount, cleared.rejected, cleared.retained, cleared.evicted, cleared.outputDrops], [0,0,0,0,0]);
+  assert.equal(cleared.historyCapacity, h.limit);
+});
