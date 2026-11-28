@@ -74,7 +74,8 @@ export interface MonitorView {
 
 export type CaptureMessage =
   | MonitorView
-  | { type: 'sources'; mode: CaptureMode; sources: string[]; sourceLabels?: string[]; selected: number; activeDns?: boolean }
+  | { type: 'sources'; mode: CaptureMode; sources: string[]; sourceLabels?: string[]; selected: number; activeDns?: boolean; historyOptions?: {limit:number;label:string}[] }
+  | { type:'history_limit'; historyCapacity:number; retained:number; evicted:number }
   | { type: 'ptr'; source: string; ip: string; name: string }
   | { type: 'dns_setting'; enabled: boolean }
   | { type: 'error'; message: string }

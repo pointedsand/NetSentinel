@@ -12,6 +12,14 @@ For an offline demonstration, close any running instance and run the installed e
 
 Click **Start capture** once. The included deterministic pcap contains three ordinary ARP records and produces one replay-labeled device arrival. Replay inventory and alerts are in memory. Live monitoring preferences and security history persist in the existing per-user store. Under **Settings → Access Control**, select **Set administrator password**, copy the displayed path, use **Choose Setup File**, and enroll with a password of at least 12 characters. An existing administrator remains enrolled after upgrading. The same Windows account retains its files under `%LOCALAPPDATA%\NetSentinel`. The application installer does not contain credentials or private captures.
 
+## Packet history
+
+Open **Settings → Monitoring → Packet History & Performance** to select 5,000, 10,000, 30,000 (default), or 50,000 recent packet records. The bridge applies a change immediately and requests administrator unlock when protection is enabled. The choice survives restarting Electron and applies to both live and demo modes. Reducing capacity permanently removes the oldest excess records. Starting another capture keeps the surviving records. Closing the application clears them.
+
+**Packets → Session details** shows the retained count, capacity and history evictions. **Captured frames** includes rejected frames and spans starts and stops until a clear or restart. **Output drops** counts worker mailbox losses. Neither counter depends on the current filter.
+
+Export **All** writes the retained metadata in newest-first order. **Filtered View** and **Selected Packets** export subsets of those same records. JSON includes packet details. CSV contains the summary columns. Logs imports remain limited to 4 MiB and 4,096 records, so a full extended-history export can exceed the import limit. Importing opens a separate log.
+
 ## Build and test
 
 Use Windows x64, Node 24.15+ in the 24.x series, npm, MSYS2 UCRT64 GCC/binutils/CMake/Ninja, the x64 Npcap SDK and the installed runtime. Adjust the two build-machine paths below. Run from the repository root. Keep the two existing npm projects and the root packaging lockfile together.
@@ -46,12 +54,28 @@ Electron's main process registers the privileged `netsentinel://desktop` scheme 
 
 The main process starts a single in-process bridge on an available loopback port. The bridge starts the bundled worker only when capture is requested. On exit it requests worker shutdown, waits and flushes the live monitor store. Static compiler runtimes remove the MSYS2 DLL requirement. The only non-Windows DLL import is the separately installed Npcap `wpcap.dll`. The package includes Electron/Chromium notices and component licenses in `resources/capture/notices`. [Windows installer configuration](https://www.electron.build/nsis/)
 
+## Expanded-history verification on Windows x64
+
+The installer payload passed the desktop smoke test with an isolated profile. The test replayed 84,000 deterministic Ethernet/ARP records across 28 starts, verified the newest and oldest available IDs at every capacity, and saw zero output drops. Each 3,000-frame replay used the existing worker mailbox override of 4,096 so burst delivery could be tested separately from retention. The production mailbox defaults to 256. Reloading the renderer restored all 50,000 records through the paged history protocol. The 1024 × 650 Settings control, replay-to-live preference persistence, changing capacity during live capture, and clearing history were exercised.
+
+| Replay checkpoint | Bridge / Electron main working set | Renderer working set |
+| --- | ---: | ---: |
+| Empty | 113 MiB | 96 MiB |
+| 30,000 retained | 154 MiB | 165 MiB |
+| 50,000 retained | 207 MiB | 218 MiB |
+| 10,000 after shrinking and another replay | 213 MiB | 196 MiB |
+| 5,000 after shrinking and another replay | 215 MiB | 213 MiB |
+
+These Windows working-set samples include the process runtimes. Lowering the limit freed record references immediately. In a test-only collection, used renderer JavaScript heap fell from 31 MiB at 50,000 records to 8 MiB at 5,000. A process can keep committed pages for reuse. At 50,000 records, a 20,000-row scroll took 29 ms, text search took 36 ms, and a protocol filter took 25 ms, including automation and two animation frames. The test checked that fewer than 50 data rows were mounted and that a selected record and its details stayed anchored when 3,000 new frames arrived.
+
+The packaged live smoke test used an authorized Intel Ethernet adapter. Over 6.4 seconds of active capture the bridge used 0.7%, renderer 2.5%, and native capture worker 0.7% of one logical core. Their working sets were 115, 124, and 9 MiB respectively. The deterministic replay establishes retention and interaction behavior at scale. It does not measure sustained high-rate live traffic, worst-case record sizes, or Linux performance.
+
 ## Demo build verification
 
 On Windows 11 x64 with Npcap installed, the unpacked app and the actual per-user NSIS installation both passed `desktop/smoke.mjs`. The test selected an Intel Ethernet adapter, observed live traffic, stopped and restarted capture, opened a second instance, and verified that closing the window terminated the owned worker and released the listening port. Relaunch reopened the same isolated profile. The test used a Windows-only runtime PATH.
 
 The packaged replay supplied the packet-inspection, protocol-filter, counter, security-alert and CSV/JSON round-trip checks. A local file chooser supplied the enrollment proof. Unlock and lock succeeded. A seeded device record tested compatibility with existing live-store data, and an edited label and trust flag survived a restart. The native download test directed Electron's download manager to a temporary path. File picker automation supplied test files. Interactive clicks in the NSIS wizard and a separate clean Windows VM were outside this run.
 
-On the updated build the bridge passed 34/34, the frontend passed 62/62, and four desktop resource and window-sizing tests passed. Core CTest passed 4/4 and capture CTest passed 5/5, including four shared suites. TypeScript/Vite and ESLint succeeded. Repeat the desktop tests after the frontend build with `node --test desktop/renderer.test.mjs desktop/window-bounds.test.mjs`. Across 18 deterministic replay sessions, the packaged UI showed 4,320 captured frames, 4,096 stored packets, 224 evicted packets and zero output drops. A TCP filter hid the stored ARP records. Clearing the capture log reset the counters and preserved the capacity.
+On the original demo pre-release the bridge passed 34/34, the frontend passed 62/62, and four desktop resource and window-sizing tests passed. Core CTest passed 4/4 and capture CTest passed 5/5, including four shared suites. TypeScript/Vite and ESLint succeeded. Repeat the desktop tests after the frontend build with `node --test desktop/renderer.test.mjs desktop/window-bounds.test.mjs`. Across 18 deterministic replay sessions, the packaged UI showed 4,320 captured frames, 4,096 stored packets, 224 evicted packets and zero output drops. A TCP filter hid the stored ARP records. Clearing the capture log reset the counters and preserved the capacity.
 
 If interface enumeration fails, check Npcap installation, driver access and the selected Windows adapter. Raw 802.11 and Radiotap links are unsupported. The [release notes](releases/v0.1.0-demo.md) describe the measured output drops and remaining platform limits.

@@ -1,5 +1,5 @@
 import { downloadFile } from '../services/browserFiles';
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Packet } from '../types';
 import { createExportFile, type ExportFormat } from './packetExport';
 
@@ -52,7 +52,7 @@ export function PacketsPage({
 }) {
   const [filterText, setFilterText] = useState('');
   const [detailId, showDetails] = useState<number | null>(initialDetail);
-  const detail = detailId === null ? undefined : packets.find(p => p.id === detailId);
+  const detail = useMemo(() => detailId === null ? undefined : packets.find(p => p.id === detailId), [packets,detailId]);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(live ? 'CSV' : 'PCAP');
   const [exportRange, setExportRange] = useState('all');
@@ -64,6 +64,7 @@ export function PacketsPage({
   const filteredPackets = useMemo(() => {
     if (matching) return matching;
     const q = filterText.toLowerCase();
+    if (!q) return packets;
     return packets.filter(p => (
       p.source.toLowerCase().includes(q) ||
       p.destination.toLowerCase().includes(q) ||
@@ -71,6 +72,23 @@ export function PacketsPage({
       p.name.toLowerCase().includes(q)
     ));
   }, [filterText, packets, matching]);
+
+  const previousHeads = useRef<{all?:number; filtered?:number}>({});
+  useLayoutEffect(() => {
+    const container = tableContainerRef.current;
+    const head = filteredPackets[0]?.id;
+    const {all,filtered:oldHead} = previousHeads.current;
+    previousHeads.current = {all:packets[0]?.id,filtered:head};
+    if (all === packets[0]?.id) return;
+    if (!live || !container || container.scrollTop < PACKET_ROW_HEIGHT || oldHead == null || head == null || head <= oldHead) return;
+    // IDs increase at capture time. Keep the same packet under the pointer as new rows arrive.
+    const inserted = filteredPackets.findIndex(row => row.id === oldHead);
+    if (inserted > 0) container.scrollTop += inserted * PACKET_ROW_HEIGHT;
+  }, [packets,filteredPackets,live]);
+
+  const oldest = packets.at(-1)?.id;
+  const selected = useMemo(() => new Set(selectedPacketIds.filter(id => oldest != null && (!live || id >= oldest))),
+    [selectedPacketIds,oldest,live]);
 
   // Render the visible window plus overscan; spacer rows preserve the full scroll height.
   const firstVisiblePacket = Math.max(
@@ -105,7 +123,7 @@ export function PacketsPage({
     if (exportRange === 'filtered') {
       dataToExport = filteredPackets;
     } else if (exportRange === 'selected') {
-      dataToExport = packets.filter(p => selectedPacketIds.includes(p.id));
+      dataToExport = packets.filter(p => selected.has(p.id));
     }
 
     const exportFile = createExportFile(dataToExport, exportFormat);
@@ -147,9 +165,9 @@ export function PacketsPage({
           </div>
         </div>
 
-        <div className="toolbar-right">
-          <span className="packet-counter">{live ? 'Visible packets' : 'Captured'}: <strong>{(live ? filteredPackets.length : packets.length).toLocaleString()}</strong></span>
-        </div>
+        {!live && <div className="toolbar-right">
+          <span className="packet-counter">Captured: <strong>{packets.length.toLocaleString()}</strong></span>
+        </div>}
       </div>
 
       <div
@@ -198,10 +216,10 @@ export function PacketsPage({
                       <input
                         type="checkbox" aria-label={'Select packet '+pkt.id}
                         onClick={event => event.stopPropagation()}
-                        checked={selectedPacketIds.includes(pkt.id)}
+                        checked={selected.has(pkt.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedPacketIds(prev => [...prev, pkt.id]);
+                            setSelectedPacketIds(prev => [...prev.filter(id => !live || (oldest != null && id >= oldest)), pkt.id]);
                           } else {
                             setSelectedPacketIds(prev => prev.filter(id => id !== pkt.id));
                           }
@@ -316,7 +334,7 @@ export function PacketsPage({
                       name="exportRange"
                       checked={exportRange === 'selected'}
                       onChange={() => setExportRange('selected')}
-                    /> Selected Packets ({selectedPacketIds.length})
+                    /> Selected Packets ({selected.size})
                   </label>
                 </div>
               </div>

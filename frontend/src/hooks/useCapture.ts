@@ -12,9 +12,10 @@ function displayName(p:RecordData) {
   if (p.destinationHostname || p.sourceHostname) return 'PTR: '+(p.destinationHostname || p.sourceHostname);
   return p.destination || p.source || p.destinationMac || 'Unknown';
 }
+const timeFormat = new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit'});
 function packetRow(p: RecordData): Packet {
   const timestamp = p.timestampUs / 1000;
-  return { id: p.id, details:p, timestamp, time: new Date(timestamp).toLocaleTimeString(),
+  return { id: p.id, details:p, timestamp, time: timeFormat.format(timestamp),
     source: p.source || p.sourceMac || '—', destination: p.destination || p.destinationMac || '—',
     protocol: p.transport || p.network || p.protocol,
     size: p.sizeBytes + ' B', sizeBytes:p.sizeBytes,
@@ -45,10 +46,12 @@ export function useCapture(showMonitor = false, showAlerts = false) {
   const [protocol, setProtocol] = useState('');
   const [query, setQuery] = useState('');
   const [activeDns, setDns] = useState(false);
+  const [historyOptions,setHistoryOptions] = useState<{limit:number; label:string}[]>([]);
   const [stats, update] = useState(empty);
   const [packets, setPackets] = useState<Packet[]>([]);
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
+    if (!term && !protocol && !packetEvent && !packetDevice) return packets;
     return packets.filter(packet => {
       if (packetEvent && !isAlertPacket(packet,packetEvent)) return false;
       if (packetDevice && !isDevicePacket(packet,packetDevice)) return false;
@@ -69,6 +72,7 @@ export function useCapture(showMonitor = false, showAlerts = false) {
       const port = location.protocol === 'netsentinel:'
         ? document.querySelector<HTMLMetaElement>('meta[name="bridge-port"]')?.content
         : '8080';
+      let restored: Packet[] = [];
       const ws = new WebSocket('ws://127.0.0.1:' + port);
       socket.current = ws;
       ws.onopen = () => {
@@ -86,6 +90,7 @@ export function useCapture(showMonitor = false, showAlerts = false) {
           const data: CaptureMessage = message;
           if (data.type === 'monitor') { setMonitor(data); return; }
           if (data.type === 'sources') {
+            if (data.historyOptions) setHistoryOptions(data.historyOptions);
             setMode(data.mode);
             setSourceIds(data.sources);
             list(data.sourceLabels ?? data.sources);
@@ -97,33 +102,50 @@ export function useCapture(showMonitor = false, showAlerts = false) {
             if (typeof data.activeDns === 'boolean') setDns(data.activeDns);
             return;
           }
+          if (data.type === 'history_limit') {
+            const {historyCapacity,retained,evicted} = data;
+            update(previous => ({...previous,historyCapacity,retained,evicted}));
+            setPackets(previous => previous.length > retained ? previous.slice(0,retained) : previous);
+            return;
+          }
           if (data.type === 'dns_setting') { setDns(data.enabled); return; }
           if (data.type === 'ptr') {
-            setPackets(rows => rows.map(row => {
+            const resolveRow = (row:Packet) => {
               const p = row.details;
               if (!p || p.captureSource !== data.source || (p.source !== data.ip && p.destination !== data.ip)) return row;
               const next = {...p};
               if (next.source === data.ip) next.sourceHostname = data.name;
               if (next.destination === data.ip) next.destinationHostname = data.name;
               return {...row,details:next,name:displayName(next)};
-            }));
+            };
+            if (restored.length) restored = restored.map(resolveRow);
+            setPackets(rows=>rows.map(resolveRow));
             return;
           }
           if (data.type === 'error') { fail(data.message); wait(false); return; }
           if (data.type !== 'batch' || !Array.isArray(data.packets)) return;
           const rows = data.packets.map(packetRow);
+          if (data.historyPage) {
+            if (data.offset === 0) restored = [];
+            restored.push(...rows);
+            if (data.nextOffset != null) {
+              ws.send(JSON.stringify({type:'control',command:'history',offset:data.nextOffset}));
+              return;
+            }
+            setPackets(restored.reverse());
+            restored = [];
+            connect(true);
+          } else if (rows.length) {
+            rows.reverse();
+            setPackets(previous => {
+              const combined = rows.concat(previous);
+              combined.length = Math.min(combined.length,data.retained);
+              return combined;
+            });
+          }
           update({packetCount:data.packetCount, bandwidthMbps:data.bandwidthMbps, rollingMbps:data.rollingMbps,
             activeConnections:data.activeConnections, outputDrops:data.outputDrops, retained:data.retained,
             historyCapacity:data.historyCapacity, evicted:data.evicted, rejected:data.rejected});
-          const replaceHistory = data.historyPage && data.offset === 0;
-          if (rows.length || replaceHistory) {
-            rows.reverse();
-            setPackets(previous => (replaceHistory ? rows : [...rows, ...previous]).slice(0, data.retained));
-          }
-          if (data.historyPage) {
-            if (data.nextOffset != null) ws.send(JSON.stringify({type:'control',command:'history',offset:data.nextOffset}));
-            else connect(true);
-          }
           const active = data.captureState === 'RUNNING';
           run(active);
           if (!active || !stopping.current) wait(false);
@@ -158,6 +180,6 @@ export function useCapture(showMonitor = false, showAlerts = false) {
       fail('');
     }
   }
-  return { admin, monitor, eventFilter, setEventFilter, packetEvent, setPacketEvent, deviceFilter, setDeviceFilter, packetDevice, setPacketDevice, sourceIds, sourceNames, eventOffset, setEventOffset, offset, setOffset, connected, running, pending, error, sources, selected, protocol, setProtocol, activeDns, stats, packets, visible, query, setQuery, mode, command, capture };
+  return { admin, historyOptions, monitor, eventFilter, setEventFilter, packetEvent, setPacketEvent, deviceFilter, setDeviceFilter, packetDevice, setPacketDevice, sourceIds, sourceNames, eventOffset, setEventOffset, offset, setOffset, connected, running, pending, error, sources, selected, protocol, setProtocol, activeDns, stats, packets, visible, query, setQuery, mode, command, capture };
 }
 export type Capture = ReturnType<typeof useCapture>;

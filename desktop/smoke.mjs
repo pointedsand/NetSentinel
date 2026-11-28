@@ -45,32 +45,125 @@ async function verifyRetention() {
   const path = join(copy, 'resources/capture/demo.pcap');
   const fixture = await readFile(path);
   // Keep each replay below the worker mailbox capacity so only history eviction is exercised.
-  await writeFile(path, Buffer.concat([fixture.subarray(0,24), ...Array(80).fill(fixture.subarray(24))]));
+  env.NETSENTINEL_BUFFER = '4096';
+  await writeFile(path, Buffer.concat([fixture.subarray(0,24), ...Array(1000).fill(fixture.subarray(24))]));
   await launch(true, join(copy, basename(executablePath)));
-  for (let session = 1; session <= 18; session++) {
+  delete env.NETSENTINEL_BUFFER;
+  const snapshot = async label => console.log(label, await desktop.evaluate(({app,BrowserWindow}) => {
+    const metrics = app.getAppMetrics();
+    const memory = pid => Math.round(metrics.find(p=>p.pid === pid).memory.workingSetSize / 1024);
+    return {bridgeMiB:memory(process.pid), rendererMiB:memory(BrowserWindow.getAllWindows()[0].webContents.getOSProcessId())};
+  }));
+  async function rendererHeap(label) {
+    const cdp = await page.context().newCDPSession(page);
+    try {
+      await cdp.send('HeapProfiler.collectGarbage');
+      const {usedSize} = await cdp.send('Runtime.getHeapUsage');
+      console.log(label,Math.round(usedSize/1048576),'MiB renderer JS heap after test-only GC');
+    } finally { await cdp.detach(); }
+  }
+  const limit = page.getByLabel('Packet history limit');
+  async function choose(capacity) {
+    await navigate('Settings');
+    await limit.selectOption(String(capacity));
+    await page.waitForFunction(n=>document.querySelector('#history-limit')?.value === String(n),capacity);
+    await navigate('Packets');
+    await diagnostics();
+  }
+  async function diagnostics() {
+    const panel = page.locator('.session-diagnostics');
+    if (!(await panel.evaluate(el=>el.open))) await panel.locator('summary').click();
+  }
+  const counter = label => page.getByText(label,{exact:true}).locator('..').locator('dd');
+  async function expectCount(label,value) {
+    await counter(label).filter({hasText:new RegExp('^'+value+'$')}).waitFor();
+  }
+  let frames = 0;
+  async function replay() {
     await button('Start capture').click();
-    await page.waitForFunction(expected => Number(document.querySelector('[data-testid="packet-count"]').textContent.replaceAll(',', '')) === expected, session * 240);
+    frames += 3000;
+    await expectCount('Captured frames',frames.toLocaleString());
     await button('Start capture').waitFor();
   }
+  async function bounds(size) {
+    const box = page.locator('.packet-virtualized-container');
+    await box.evaluate(el=>{el.scrollTop=el.scrollHeight;});
+    await button(String(frames-size+1)).waitFor();
+    await box.evaluate(el=>{el.scrollTop=0;});
+    await button(String(frames)).waitFor();
+    assert.ok(await box.locator('.row-num').count() < 50);
+    await expectCount('History evictions',(frames-size).toLocaleString());
+    await expectCount('Output drops','0');
+  }
+  await navigate('Settings');
+  assert.equal(await limit.inputValue(),'30000');
   await navigate('Packets');
-  const totals = page.locator('.rail-totals').first();
-  const value = async label => (await totals.getByText(label, { exact: true }).locator('..').locator('dd').innerText()).replaceAll(',', '');
-  assert.equal(await value('Captured frames'), '4320');
-  assert.equal(await value('Stored packets'), '4096 / 4096');
-  assert.equal(await value('Evicted packets'), '224');
-  assert.equal(await value('Output drops'), '0');
-  const visible = page.locator('.packet-counter strong');
-  assert.equal((await visible.innerText()).replaceAll(',', ''), '4096');
-  await page.getByLabel('Display protocol').selectOption('TCP');
-  assert.equal(await visible.innerText(), '0');
-  assert.equal(await value('Stored packets'), '4096 / 4096');
+  await diagnostics();
+  await snapshot('Empty working set');
+  for (let i=0; i<11; i++) await replay();
+  await bounds(30000);
+  await snapshot('Standard working set');
+  await choose(50000);
+  await bounds(30000);
+  for (let i=0; i<14; i++) await replay();
+  await bounds(50000);
+  const table = page.locator('.packet-virtualized-container');
+  const search = page.getByLabel('Search packets');
+  const latency = async (label,action) => {
+    const start = performance.now();
+    await action();
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    console.log(label,Math.round(performance.now()-start),'ms (automation through two animation frames)');
+  };
+  await latency('Scroll at 50k',async()=>{
+    await table.evaluate(el=>{el.scrollTop=41*20000;});
+    await button(String(frames-20000)).waitFor();
+  });
+  const id = frames-20000;
+  await page.getByLabel('Select packet '+id,{exact:true}).check();
+  await button(String(id)).click();
+  const y = () => button(String(id)).evaluate(el=>el.getBoundingClientRect().top);
+  const top = await y();
+  await replay();
+  assert.ok(Math.abs(await y()-top)<2,'Inspected packet moved during capture');
+  assert.ok(await page.getByLabel('Select packet '+id,{exact:true}).isChecked());
+  assert.match(await page.locator('.packet-details h3').innerText(),new RegExp('Packet '+id+' '));
+  await button('Close details').click();
+  await latency('Text search at 50k',async()=>{
+    await search.fill('192.0.2.20');
+    await page.waitForFunction(()=>[...document.querySelectorAll('.row-num')].length>0 &&
+      [...document.querySelectorAll('.row-num')].every(td=>td.nextElementSibling.textContent === '192.0.2.20'));
+  });
+  await latency('Protocol filter at 50k',async()=>{
+    await page.getByLabel('Display protocol').selectOption('TCP');
+    await page.getByText('No matching packets found.').waitFor();
+  });
+  await page.getByLabel('Display protocol').selectOption('');
+  await search.fill('');
+  await snapshot('Extended working set');
+  await rendererHeap('Extended');
+  await page.reload();
+  await page.getByText('Backend connected',{exact:true}).waitFor();
+  await navigate('Packets');
+  await diagnostics();
+  await bounds(50000);
+  await choose(10000);
+  await bounds(10000);
+  await replay();
+  await bounds(10000);
+  await snapshot('Balanced working set after shrink');
+  await choose(5000);
+  await bounds(5000);
+  await replay();
+  await bounds(5000);
+  await snapshot('Low working set after shrink');
+  await rendererHeap('Low after shrink');
   await button('Clear Capture Log').click();
-  await page.waitForFunction(() => document.querySelector('.rail-totals dd').textContent === '0');
-  assert.equal(await value('Stored packets'), '0 / 4096');
-  assert.equal(await value('Evicted packets'), '0');
-  assert.equal(await value('Output drops'), '0');
+  await expectCount('Captured frames','0');
+  await expectCount('History evictions','0');
+  await expectCount('Retained / capacity','0 / 5,000');
   await closeWindow();
-  console.log('PASS packaged deterministic replay: 4320 captured, 4096 stored, 224 evicted, 0 drops; filtering and explicit reset confirmed.');
+  console.log('PASS packaged retention: '+frames+' captured; four capacities, newest and oldest IDs, anchored selection, search, eviction, zero output drops and clear.');
 }
 async function verifyWindowSize() {
   const theme = await desktop.evaluate(({ BrowserWindow, nativeTheme }) => {
@@ -120,6 +213,11 @@ async function verifyWindowSize() {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     const controls = page.locator('.desktop-header').getByRole('button', { name: 'Start capture' });
     await controls.click({ trial: true });
+    if (route === 'Settings') {
+      const limit = page.getByLabel('Packet history limit');
+      assert.equal(await limit.inputValue(),'5000');
+      await limit.click({trial:true});
+    }
     if (route === 'Dashboard') {
       await content.locator('.overview-previews').scrollIntoViewIfNeeded();
       assert.ok(await content.evaluate(el => el.scrollHeight <= el.clientHeight || el.scrollTop > 0));
@@ -210,6 +308,8 @@ try {
     label: 'Upgrade fixture', hostname: '', trusted: false, first: 1, last: 1, evidence: 'Deterministic upgrade fixture' };
   await writeFile(join(dir, 'NetSentinel/monitor-v1.json'), JSON.stringify({version: 1, devices: [fixture], events: []}));
   await launch(false);
+  await navigate('Settings');
+  assert.equal(await page.getByLabel('Packet history limit').inputValue(),'5000');
   await settings();
   await button('Unlock administrator controls').waitFor();
   await button('Unlock administrator controls').click();
@@ -241,6 +341,24 @@ try {
     { windowsHide: true })).stdout.trim();
   const worker = Number(await children());
   assert.ok(worker > 0, 'Expected one live worker owned by the application.');
+  const renderer = await desktop.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.getOSProcessId());
+  const sample = async () => JSON.parse((await run(ps,['-NoProfile','-Command',
+    'Get-Process -Id '+[pid,renderer,worker].join(',')+' | Select-Object Id,CPU,WorkingSet64 | ConvertTo-Json -Compress'],
+    {windowsHide:true})).stdout);
+  const before = await sample(), started = performance.now();
+  await new Promise(done=>setTimeout(done,6000));
+  const after = await sample(), seconds = (performance.now()-started)/1000;
+  for (const [name,id] of [['bridge',pid],['renderer',renderer],['worker',worker]]) {
+    const end = after.find(row=>row.Id === id);
+    console.log('Active live '+name, Math.round(end.WorkingSet64/1048576)+' MiB,',
+      ((end.CPU-before.find(row=>row.Id === id).CPU)*100/seconds).toFixed(1)+'% of one core over '+seconds.toFixed(1)+'s');
+  }
+  await navigate('Settings');
+  await page.getByLabel('Packet history limit').selectOption('10000');
+  await navigate('Packets');
+  await page.locator('.session-diagnostics summary').click();
+  await page.getByText('Retained / capacity',{exact:true}).locator('..').getByText(/10,000$/).waitFor();
+  await button('Stop capture').waitFor();
   await run(executablePath, [profile], { env, timeout: 15000, windowsHide: true });
   assert.equal(Number(await children()), worker);
   await closeWindow();
@@ -248,6 +366,7 @@ try {
   console.log('PASS physical adapter enumeration, live traffic, stop/start, duplicate-launch protection, capture worker exit and closed bridge port.');
   await launch(false);
   await navigate('Devices');
+  await page.getByLabel('Search local devices').fill('Persisted fixture');
   await page.getByRole('button', { name: /Details for Persisted fixture/ }).click();
   assert.equal(await page.getByLabel('Trust status').inputValue(), 'trusted');
   await closeWindow();

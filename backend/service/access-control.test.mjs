@@ -10,10 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 import { serve } from './server.mjs';
 import { Monitor } from './monitor.mjs';
-import { openStore } from './monitor-store.mjs';
+import { openHistoryPreferences, openStore } from './monitor-store.mjs';
 
 const origin = 'http://localhost:5173';
-async function workspace(t) {
+async function workspace(t, preferences) {
   const dir = await mkdtemp(join(tmpdir(),'netsentinel-access-'));
   const source = join(dir,'devices.pcap');
   execFileSync(process.execPath,[fileURLToPath(new URL('./security-demo.mjs',import.meta.url)),source]);
@@ -27,6 +27,7 @@ async function workspace(t) {
   async function open() {
     const monitor = new Monitor({store:await openStore(join(dir,'monitor.json'))});
     bridge = serve({executable:process.env.NETSENTINEL_BIN || 'netsentinel',mode:'--replay',source,
+      preferences:preferences ?? await openHistoryPreferences(join(dir,'monitor.json')),
       port:0,origin,monitor,credentialFile:join(dir,'credentials.json')});
     await once(bridge.server,'listening');
     url = 'ws://127.0.0.1:'+bridge.server.address().port;
@@ -76,7 +77,7 @@ test('raw socket cannot mutate protected state; inspection, acknowledgment and r
   assert.equal((await request('ack_event',{id:newest})).events[0].acknowledged,true);
   const fields = {monitor_rules:{rules:{...initial.rules,discovery:'off'}},
     device_preference:{id,label:'Authorized fixture',trusted:true},active_dns:{enabled:true},
-    clear_events:{newest,total:1},clear_packets:{}};
+    history_limit:{limit:5000},clear_events:{newest,total:1},clear_packets:{}};
   for (const [name,input] of Object.entries(fields)) {
     const denied = await request(name,{...input,isAdmin:true,token:'fake'});
     assert.equal(denied.type,'admin_required',name);
@@ -102,6 +103,9 @@ test('raw socket cannot mutate protected state; inspection, acknowledgment and r
   assert.equal(invalid.type,'error');
   assert.equal((await request('monitor')).rules.discovery,initial.rules.discovery);
   assert.equal((await request('monitor_rules',{token,...fields.monitor_rules})).rules.discovery,'off');
+  assert.equal((await request('history_limit',{token,limit:'5000'})).type,'error');
+  assert.equal((await request('history')).historyCapacity,30000);
+  assert.equal((await request('history_limit',{token,limit:5000})).historyCapacity,5000);
   assert.equal((await request('active_dns',{token,...fields.active_dns})).enabled,true);
   assert.equal((await request('clear_events',{token,newest:'stale',total:1})).type,'error');
   assert.equal((await request('clear_events',{token,...fields.clear_events})).eventTotal,0);
@@ -113,8 +117,19 @@ test('raw socket cannot mutate protected state; inspection, acknowledgment and r
   await restart();
   assert.equal((await request('admin_status')).enabled,true);
   assert.equal((await request('clear_packets',{token:second.token})).type,'admin_required');
+  assert.equal((await request('history')).historyCapacity,5000);
   const restored = await request('monitor');
   assert.equal(restored.eventTotal,0);
   assert.equal(restored.devices.find(d=>d.id===id).trusted,true);
   assert.equal(restored.rules.discovery,'off');
+});
+
+test('a failed preference write leaves the running history intact',async t=>{
+  const {request} = await workspace(t,{limit:50000,async save(){throw Error('storage unavailable');}});
+  await request('history');
+  await request('start_capture');
+  const before = await request('history');
+  assert.equal(before.retained,3);
+  assert.equal((await request('history_limit',{limit:5000})).type,'error');
+  assert.deepEqual(await request('history'),before);
 });

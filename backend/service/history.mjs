@@ -1,8 +1,18 @@
 const zero = () => ({type:'batch',captureState:'PAUSED',packetCount:0,bytes:0,wireBytes:0,rejected:0,
   outputDrops:0,protocolCounts:[0,0,0,0],activeConnections:0,bandwidthMbps:0,elapsedSeconds:0});
 
+export const defaultHistoryLimit = 30000;
+export const historyOptions = [
+  {limit:5000, label:'Low memory usage'}, {limit:10000, label:'Balanced'},
+  {limit:defaultHistoryLimit, label:'Recommended'}, {limit:50000, label:'Extended history'}
+];
+export function validateHistoryLimit(value) {
+  if (!historyOptions.some(option => option.limit === value)) throw Error('Choose a supported packet history limit.');
+  return value;
+}
+
 export class PacketHistory {
-  constructor(limit = 4096) { this.limit = limit; this.clear(); }
+  constructor(limit = defaultHistoryLimit) { this.limit = limit; this.clear(); }
   clear() {
     this.rows = []; this.evicted = 0; this.next = 1;
     this.stats = zero(); this.begin();
@@ -31,11 +41,18 @@ export class PacketHistory {
       if (row.destination === ip) row.destinationHostname = name;
     }
   }
+  trim() {
+    const excess = this.rows.length - this.limit;
+    if (excess > 0) { this.rows.splice(0,excess); this.evicted += excess; }
+  }
+  resize(limit) {
+    this.limit = validateHistoryLimit(limit);
+    this.trim();
+  }
   append(batch, source) {
     const packets = batch.packets.map(p => ({...p,id:this.next++,captureSource:source}));
     this.rows.push(...packets);
-    const excess = Math.max(0,this.rows.length-this.limit);
-    this.rows.splice(0,excess); this.evicted += excess;
+    this.trim();
     const stats = {...batch}; delete stats.packets;
     for (const key of ['packetCount','bytes','rejected','outputDrops','elapsedSeconds'])
       stats[key] = this.base[key] + batch[key];

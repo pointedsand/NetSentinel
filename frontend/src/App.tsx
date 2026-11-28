@@ -17,7 +17,7 @@ import type { AlertItem, AlertRules } from './pages/alertTypes';
 import { usePacketSimulation } from './hooks/usePacketSimulation';
 import { sourceName } from './deviceIdentity';
 import { useCapture } from './hooks/useCapture';
-import { CaptureControls, CaptureSource, NameResolution } from './components/CaptureControls';
+import { CaptureControls, CaptureSource, NameResolution, PacketHistorySettings } from './components/CaptureControls';
 
 export function App() {
   return new URLSearchParams(window.location.search).get('workspace') === 'simulation' ? <DemoApp /> : <CaptureApp />;
@@ -111,7 +111,7 @@ function CaptureApp() {
     }} />}
     {page === 'logs' && <LogViewerPage monitoringEvents={capture.monitor?.events} eventTotal={capture.monitor?.eventTotal}
       onDeleteEvents={(newest,total)=>capture.command('clear_events',{newest,total})} importedLog={importedLog} onImport={setImportedLog} archiveUnavailable initialLogs={[]} initialSecurityEvents={[]} />}
-    {page === 'settings' && <SettingsPage admin={capture.admin} monitoring={<NameResolution state={capture}/>} onNavigateDashboard={dashboard} />}
+    {page === 'settings' && <SettingsPage admin={capture.admin} monitoring={<><NameResolution state={capture}/><PacketHistorySettings state={capture}/></>} onNavigateDashboard={dashboard} />}
   </AppShell>;
 }
 

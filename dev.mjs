@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { Monitor } from './backend/service/monitor.mjs';
-import { defaultStateFile, openStore } from './backend/service/monitor-store.mjs';
+import { defaultStateFile, openHistoryPreferences, openStore } from './backend/service/monitor-store.mjs';
 import { serve } from './backend/service/server.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
@@ -52,7 +52,7 @@ try {
   }
   const origin = 'http://127.0.0.1:5173';
   const monitor = new Monitor({ store: await openStore(mode === '--interface' ? process.env.NETSENTINEL_STATE_FILE || defaultStateFile() : null) });
-  bridge = serve({ monitor, executable, mode, sources, sourceLabels, source: sources[0], origin, dns: process.env.NETSENTINEL_DNS === '1' });
+  bridge = serve({ preferences:await openHistoryPreferences(process.env.NETSENTINEL_STATE_FILE || defaultStateFile()), monitor, executable, mode, sources, sourceLabels, source: sources[0], origin, dns: process.env.NETSENTINEL_DNS === '1' });
   await once(bridge.server, 'listening');
   site = await createServer({ root: frontend, server: { host: '127.0.0.1', port: 5173, strictPort: true } });
   await site.listen();

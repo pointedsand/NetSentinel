@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { serve } from '../backend/service/server.mjs';
 import { Monitor } from '../backend/service/monitor.mjs';
-import { defaultStateFile, openStore } from '../backend/service/monitor-store.mjs';
+import { defaultStateFile, openHistoryPreferences, openStore } from '../backend/service/monitor-store.mjs';
 import { origin, renderer } from './renderer.mjs';
 import { initialWindowBounds } from './window-bounds.mjs';
 
@@ -40,7 +40,7 @@ async function start() {
     sourceLabels = adapters.map(([name, description]) => description ? description + ' · ' + name : name);
   }
   const monitor = new Monitor({ store: await openStore(demo ? null : defaultStateFile()) });
-  bridge = serve({ executable, mode: demo ? '--replay' : '--interface', sources, source: sources[0],
+  bridge = serve({ preferences:await openHistoryPreferences(defaultStateFile()), executable, mode: demo ? '--replay' : '--interface', sources, source: sources[0],
     sourceLabels, monitor, origin, port: 0 });
   await once(bridge.server, 'listening');
   const ses = session.defaultSession;

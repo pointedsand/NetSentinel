@@ -70,3 +70,17 @@ it('keeps stop pending until the worker acknowledges shutdown', () => {
   expect(result.current.pending).toBe(false);
   expect(result.current.running).toBe(false);
 });
+
+it('restores acknowledged pages newest first and applies capacity changes without new traffic',()=>{
+  vi.stubGlobal('WebSocket',TestSocket);
+  const {result} = renderHook(useCapture);
+  const socket = TestSocket.current;
+  socket.deliver({...batch,historyPage:true,offset:0,nextOffset:1,packets:[record]});
+  expect(result.current.connected).toBe(false);
+  socket.deliver({...batch,historyPage:true,offset:1,nextOffset:null,packets:[{...record,id:2}]});
+  expect(result.current.connected).toBe(true);
+  expect(result.current.visible.map(p=>p.id)).toEqual([2,1]);
+  socket.deliver({type:'history_limit',historyCapacity:5000,retained:1,evicted:1});
+  expect(result.current.visible.map(p=>p.id)).toEqual([2]);
+  expect(result.current.stats).toMatchObject({packetCount:12,outputDrops:8,historyCapacity:5000});
+});

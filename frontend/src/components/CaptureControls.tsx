@@ -17,6 +17,17 @@ export function NameResolution({state}: {state:Capture}) {
     <p>Look up hostnames for observed addresses in the background.</p></section>;
 }
 
+export function PacketHistorySettings({state}: {state:Capture}) {
+  return <section className="dashboard-card preferences-card"><h2>Packet History &amp; Performance</h2>
+    <label htmlFor="history-limit">Packet history limit</label>
+    <select id="history-limit" disabled={!state.connected || !state.historyOptions.length}
+      value={state.stats.historyCapacity ?? ''} onChange={e=>state.command('history_limit',{limit:Number(e.target.value)})}>
+      {state.historyOptions.map(({limit,label})=><option key={limit} value={limit}>{limit.toLocaleString()} packets — {label}</option>)}
+    </select>
+    <p>Choose how many recent packet records NetSentinel keeps available for inspection.
+      Reducing the limit immediately removes the oldest excess records.</p></section>;
+}
+
 export function CaptureControls({state}: {state:Capture}) {
   const {packetCount, rejected, retained, historyCapacity, evicted, outputDrops} = state.stats;
   const stored = historyCapacity == null ? retained.toLocaleString() :
@@ -28,12 +39,11 @@ export function CaptureControls({state}: {state:Capture}) {
     </select></label>
     <dl className="rail-totals">
       <div><dt>Captured frames</dt><dd>{(packetCount + rejected).toLocaleString()}</dd></div>
-      <div><dt>Stored packets</dt><dd>{stored}</dd></div>
-      <div><dt>Evicted packets</dt><dd>{evicted.toLocaleString()}</dd></div>
       <div><dt>Output drops</dt><dd>{outputDrops.toLocaleString()}</dd></div>
     </dl>
-    {historyCapacity != null && <small>Only the newest {historyCapacity.toLocaleString()} packet records are retained in memory.</small>}
     <details className="session-diagnostics"><summary>Session details</summary><dl className="rail-totals">
+      <div><dt>Retained / capacity</dt><dd>{stored}</dd></div>
+      <div><dt>History evictions</dt><dd>{evicted.toLocaleString()}</dd></div>
       <div><dt>Rejected</dt><dd>{rejected.toLocaleString()}</dd></div>
       <div><dt>Reverse DNS</dt><dd>{state.activeDns?'On':'Off'}</dd></div></dl>
       <p>{state.sourceIds[state.selected]}</p></details>

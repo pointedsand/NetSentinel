@@ -9,7 +9,7 @@ import { isIP } from 'node:net';
 import { ObservedNames } from './observed-names.mjs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Hostnames } from './resolver.mjs';
-import { PacketHistory } from './history.mjs';
+import { PacketHistory, historyOptions, validateHistoryLimit } from './history.mjs';
 
 function filterArgs(filter = {}) {
   const keys = ['protocol','source_ip','destination_ip','source_port','destination_port'];
@@ -26,10 +26,11 @@ function filterArgs(filter = {}) {
   });
 }
 
-export function serve({ executable, mode, source, sources = [source], sourceLabels, monitor = new Monitor(), port = 8080, dns = false,
+export function serve({ executable, mode, source, sources = [source], sourceLabels, preferences, monitor = new Monitor(), port = 8080, dns = false,
                         credentialFile, origin = 'http://localhost:5173' }) {
   if (!executable || !source || !['--interface','--replay'].includes(mode)) throw Error('invalid capture source');
-  const history = new PacketHistory();
+  const history = new PacketHistory(preferences?.limit);
+  let savingLimit;
   let activeDns = dns, names, resolverSource;
   function resolver(source) {
     if (resolverSource !== source) { names?.close(); names = null; resolverSource = source; }
@@ -82,6 +83,7 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
       switch (msg.command) {
         case 'clear_packets': return JSON.stringify([history.next,history.stats.packetCount,Boolean(child)]);
         case 'clear_events': return monitor.detector.events[0]?.id ?? '';
+        case 'history_limit': return history.limit;
         case 'active_dns': return activeDns;
         case 'monitor_rules': return JSON.stringify(monitor.detector.rules);
         case 'device_preference': {
@@ -108,7 +110,7 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
           send({...result,requestId:msg.requestId});
           return;
         }
-        if (['monitor_rules','device_preference','active_dns','clear_packets','clear_events'].includes(msg.command) &&
+        if (['monitor_rules','device_preference','active_dns','history_limit','clear_packets','clear_events'].includes(msg.command) &&
             !admin.permits(msg.token)) {
           challenge = {id:randomUUID(),msg,revision:revision(msg),generation:admin.generation,until:Date.now()+5*60_000};
           send({type:'admin_required',challenge:challenge.id,requestId:msg.requestId});
@@ -125,6 +127,19 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
           send(monitor.view()); return;
         }
         if (['monitor','device_preference','monitor_rules','ack_event'].includes(msg.command)) { send(monitor.command(msg)); return; }
+        if (msg.command === 'history_limit') {
+          const limit = validateHistoryLimit(msg.limit);
+          if (savingLimit) throw Error('A packet history setting is already being saved.');
+          try {
+            savingLimit = preferences?.save(limit) ?? Promise.resolve();
+            await savingLimit;
+            history.resize(limit);
+            if (client && client !== socket) client.close(1012,'History resized. Reconnecting.');
+            else send({type:'history_limit',historyCapacity:limit,retained:history.rows.length,evicted:history.evicted});
+          } catch { throw Error('Could not save the packet history limit.'); }
+          finally { savingLimit = undefined; }
+          return;
+        }
         if (msg.command === 'active_dns' && typeof msg.enabled === 'boolean') {
           activeDns=msg.enabled;
           if (!activeDns) { names?.close(); names=null; }
@@ -148,7 +163,7 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
           send({...history.message([]),historyPage:true,offset:0,nextOffset:null}); return;
         }
         if (msg.command === 'list_sources') {
-          send({type:'sources', mode, sources, sourceLabels, selected,activeDns}); return;
+          send({type:'sources', mode, sources, sourceLabels, selected,activeDns,historyOptions}); return;
         }
         if (msg.command === 'select_source' && !child) {
           if (!Number.isInteger(msg.index) || msg.index < 0 || msg.index >= sources.length)
@@ -198,6 +213,7 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
           watchdog = undefined;
           child = undefined;
           monitor.stop();
+          if (final && historyMode) final = history.message(final.packets);
           if (code === 0 && final && !final.failed) {
             send(final);
             return;
@@ -225,6 +241,7 @@ export function serve({ executable, mode, source, sources = [source], sourceLabe
     server.close();
     http.close();
     await stopped;
+    await savingLimit?.catch(()=>{});
     await monitor.store?.flush();
   } };
 }

@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 
 type Status = { enabled:boolean; unlocked:boolean; unavailable:boolean; expiresAt:number|null };
 type Reply = Status & { type:string; token?:string; challenge?:string; requestId?:number; message?:string; setupFile?:string; setupVerifiedUntil?:number };
-const protectedCommands = new Set(['monitor_rules','device_preference','clear_packets','clear_events','active_dns']);
+const protectedCommands = new Set(['monitor_rules','device_preference','clear_packets','clear_events','active_dns','history_limit']);
 
 export function useAdministrator(socket:RefObject<WebSocket|null>) {
   const [status,setStatus] = useState<Status|null>(null);
