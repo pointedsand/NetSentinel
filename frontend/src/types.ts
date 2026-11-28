@@ -46,6 +46,7 @@ export interface CaptureStats {
   activeConnections: number;
   outputDrops: number;
   retained: number;
+  historyCapacity?: number;
   evicted: number;
   rejected: number;
 }

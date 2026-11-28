@@ -113,11 +113,12 @@ export function useCapture(showMonitor = false, showAlerts = false) {
           if (data.type !== 'batch' || !Array.isArray(data.packets)) return;
           const rows = data.packets.map(packetRow);
           update({packetCount:data.packetCount, bandwidthMbps:data.bandwidthMbps, rollingMbps:data.rollingMbps,
-            activeConnections:data.activeConnections, outputDrops:data.outputDrops, retained:data.retained, evicted:data.evicted, rejected:data.rejected});
+            activeConnections:data.activeConnections, outputDrops:data.outputDrops, retained:data.retained,
+            historyCapacity:data.historyCapacity, evicted:data.evicted, rejected:data.rejected});
           const replaceHistory = data.historyPage && data.offset === 0;
           if (rows.length || replaceHistory) {
             rows.reverse();
-            setPackets(previous => replaceHistory ? rows : [...rows, ...previous].slice(0, 4096));
+            setPackets(previous => (replaceHistory ? rows : [...rows, ...previous]).slice(0, data.retained));
           }
           if (data.historyPage) {
             if (data.nextOffset != null) ws.send(JSON.stringify({type:'control',command:'history',offset:data.nextOffset}));
